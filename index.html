@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>SUAD PRO - ALTA PERFORMANCE</title>
+    <style>
+        :root { --primary: #2b4c8c; --accent: #dc3545; --bg: #eef1f5; --success: #28a745; }
+        * { box-sizing: border-box; }
+        body { margin:0; font-family:'Segoe UI',Tahoma,sans-serif; background:var(--bg); display:flex; height:100vh; overflow:hidden; }
+
+        /* ── Sidebar ── */
+        .sidebar { width:220px; background:white; border-right:1px solid #ccc; padding:15px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+        .sidebar h2 { font-size:.95rem; color:var(--primary); border-bottom:2px solid var(--primary); padding-bottom:10px; margin-bottom:10px; }
+        .btn-side { border:none; background:none; padding:12px; text-align:left; cursor:pointer; border-radius:6px; font-weight:600; color:#444; transition:.2s; width:100%; }
+        .btn-side:hover { background:#f0f4ff; color:var(--primary); }
+        .btn-side.active { background:var(--primary); color:white; }
+
+        /* ── Layout Principal ── */
+        .main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+        .topbar { background:var(--primary); color:white; padding:12px 25px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .conteudo { padding:20px; overflow-y:auto; flex:1; }
+        .tela { display:none; }
+        .card { background:white; padding:20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.1); margin-bottom:15px; }
+
+        /* ── Switch ── */
+        .switch { position:relative; display:inline-block; width:40px; height:20px; vertical-align:middle; }
+        .switch input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; inset:0; background:#ccc; transition:.4s; border-radius:20px; }
+        input:checked + .slider { background:var(--success); }
+        .slider:before { position:absolute; content:""; height:14px; width:14px; left:3px; bottom:3px; background:white; transition:.4s; border-radius:50%; }
+        input:checked + .slider:before { transform:translateX(20px); }
+
+        /* ── Tabela ── */
+        .tbl-wrap { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:900px; }
+        th { background:var(--primary); color:white; padding:9px 10px; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:2; }
+        td { padding:7px 10px; border-bottom:1px solid #eee; vertical-align:middle; white-space:nowrap; }
+        tr:nth-child(even) td { background:#f8f9fa; }
+        tr:hover td { background:#e8f4fd !important; }
+
+        /* ── Inputs ── */
+        input[type="text"], select {
+            padding:7px 10px; border:1px solid #ccc; border-radius:4px;
+            width:100%; font-size:13px;
+        }
+        input[type="text"]:focus, select:focus { outline:2px solid var(--primary); border-color:var(--primary); }
+
+        /* ── Cadastro ── */
+        .item-cadastro { border-left:4px solid var(--primary); padding:15px; margin-bottom:10px; background:#f9f9f9; border-radius:0 5px 5px 0; }
+        .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+        .grid-2 { display:grid; grid-template-columns:2fr 1fr; gap:10px; }
+
+        /* ── Busca ── */
+        .resultado-card { background:white; border-radius:8px; padding:15px; margin-bottom:10px; box-shadow:0 1px 4px rgba(0,0,0,.08); border-left:4px solid var(--primary); }
+        .resultado-card b { color:var(--primary); font-size:14px; }
+        .resultado-card .linha { display:flex; flex-wrap:wrap; gap:16px; margin-top:6px; font-size:12.5px; color:#444; }
+        .resultado-card .linha span { display:flex; gap:4px; align-items:center; }
+        .resultado-card .tag-origem { background:#e9ecef; border-radius:4px; padding:2px 7px; font-size:11px; color:#555; margin-left:auto; }
+
+        /* ── Paginação ── */
+        .paginacao { display:flex; align-items:center; gap:6px; margin-top:12px; }
+        .paginacao button { border:1px solid #ccc; background:white; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:13px; }
+        .paginacao button:hover { background:#f0f4ff; }
+        .paginacao button:disabled { opacity:.4; cursor:default; }
+        .paginacao span { font-size:13px; color:#555; }
+
+        /* ── Badges ── */
+        .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+        .badge-sql  { background:#d4edda; color:#155724; }
+        .badge-xls  { background:#cce5ff; color:#004085; }
+
+        /* ── Dark Mode ── */
+        body.dark-mode { --bg: #1a1a1b; color: #e8eaed; }
+        .dark-mode .sidebar { background: #202124; border-right: 1px solid #3c4043; }
+        .dark-mode .sidebar h2 { color: #8ab4f8; border-bottom-color: #8ab4f8; }
+        .dark-mode .btn-side { color: #bdc1c6; }
+        .dark-mode .btn-side:hover { background: #3c4043; color: #8ab4f8; }
+        .dark-mode .card, .dark-mode .resultado-card { background: #202124; color: #e8eaed; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+        .dark-mode .topbar { background: #202124; border-bottom: 1px solid #3c4043; }
+        .dark-mode input[type="text"], .dark-mode select { background: #2d2e31; color: #e8eaed; border-color: #5f6368; }
+        .dark-mode table th { background: #303134; color: #e8eaed; }
+        .dark-mode td { border-bottom-color: #3c4043; color: #bdc1c6; }
+        .dark-mode tr:nth-child(even) td { background: #202124; }
+        .dark-mode tr:hover td { background: #303134 !important; }
+        .dark-mode .item-cadastro { background: #2d2e31; color: #e8eaed; }
+        .dark-mode .resultado-card b { color: #8ab4f8; }
+        .dark-mode .resultado-card .linha { color: #9aa0a6; }
+    </style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ════════════════════════════════════════════════════════════ -->
+<div class="sidebar">
+    <h2 style="cursor:pointer;" onclick="ir('home')">⚙️ SISTEMA SUAD</h2>
+    <button class="btn-side" id="btn-home"      onclick="ir('home')">🔍 Pesquisa Rápida</button>
+    <button class="btn-side" id="btn-cadastros" onclick="ir('cadastros')">📊 Visualizar Cadastros</button>
+    <button class="btn-side" id="btn-novo"      onclick="ir('novo')">➕ Novo Cadastro</button>
+    <div style="flex:1;"></div>
+    <small style="color:#888;padding:0 4px;">SUAD PRO v2.0<br>Ministério</small>
+</div>
+
+<!-- ══ ÁREA PRINCIPAL ═════════════════════════════════════════════════════ -->
+<div class="main">
+    <div class="topbar">
+        <span>🏢 Sistema SUAD PRO</span>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <label class="switch" style="transform: scale(0.7); margin-right: -5px;" title="Alternar Modo Escuro">
+                <input type="checkbox" id="chk-dark" onchange="toggleDarkMode()">
+                <span class="slider"></span>
+            </label>
+            <span style="font-size:12px; font-weight:normal; opacity:0.9;">👤 Danilo Basilio</span>
+        </div>
+    </div>
+
+    <div class="conteudo">
+
+        <!-- ── TELA: PESQUISA ─────────────────────────────────────────── -->
+        <div id="home" class="tela">
+            <h3>🔍 Pesquisar no Acervo</h3>
+            <div class="card">
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="campo-busca"
+                           placeholder="Digite o nome, processo ou caixa..."
+                           onkeyup="if(event.key==='Enter') buscar()"
+                           style="flex:1;">
+                    <button class="btn-side"
+                            style="background:var(--primary);color:white;width:auto;padding:8px 20px;"
+                            onclick="buscar()">
+                        🔍 Pesquisar
+                    </button>
+                </div>
+                <div id="info-busca" style="margin-top:8px;font-size:12px;color:#666;"></div>
+            </div>
+            <div id="resultado-busca"></div>
+        </div>
+
+        <!-- ── TELA: VISUALIZAR CADASTROS ────────────────────────────── -->
+        <div id="cadastros" class="tela">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+                <h3 style="margin:0;">📊 Visualização de Cadastros</h3>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+
+                    <!-- Filtro de coluna + texto -->
+                    <select id="col-filtro" style="width:130px;">
+                        <option value="">Todos os campos</option>
+                        <option value="interessado">Interessado</option>
+                        <option value="n_processo">Processo</option>
+                        <option value="caixa">Caixa</option>
+                        <option value="unidade">Unidade</option>
+                        <option value="localizacao">Localização</option>
+                        <option value="usuario">Responsável</option>
+                        <option value="assunto">Assunto</option>
+                    </select>
+                    <input type="text" id="filtro-planilha"
+                           placeholder="Filtrar..."
+                           style="width:180px;"
+                           onkeyup="if(event.key==='Enter') filtrarPlanilha()">
+                    <button class="btn-side"
+                            style="background:var(--primary);color:white;width:auto;padding:6px 14px;"
+                            onclick="filtrarPlanilha()">Filtrar</button>
+                    <button class="btn-side"
+                            style="background:#6c757d;color:white;width:auto;padding:6px 14px;"
+                            onclick="limparFiltro()">Limpar</button>
+
+                    <!-- Modo edição -->
+                    <span style="font-size:13px;font-weight:bold;">EDIÇÃO:</span>
+                    <label class="switch">
+                        <input type="checkbox" id="chk-edit" onchange="toggleEdicao()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="card">
+                <div id="info-planilha" style="font-size:12px;color:#666;margin-bottom:8px;"></div>
+                <div class="tbl-wrap">
+                    <table id="tabela-dados">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;">
+                                    <input type="checkbox" id="chk-todos"
+                                           title="Marcar todos"
+                                           onchange="marcarTodos(this.checked)"
+                                           style="width:14px;height:14px;cursor:pointer;">
+                                </th>
+                                <th>ID</th>
+                                <th>Unidade</th>
+                                <th>Caixa</th>
+                                <th>Tipo Doc</th>
+                                <th>Processo</th>
+                                <th>Vol.</th>
+                                <th>Assunto</th>
+                                <th>Interessado</th>
+                                <th>Localização</th>
+                                <th>Responsável</th>
+                                <th>Dt. Limite</th>
+                                <th>Dt. Cadastro</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-planilha"></tbody>
+                    </table>
+                </div>
+
+                <!-- Barra de seleção múltipla -->
+                <div id="barra-selecao" style="display:none;margin-top:10px;background:#fff3cd;
+                     border:1px solid #f6ad55;border-radius:6px;padding:10px 14px;font-size:13px;">
+                    ☑ <span id="qtd-sel">0</span> registro(s) selecionado(s)
+                    &nbsp;
+                    <button onclick="excluirLote()"
+                            style="background:#dc3545;color:white;border:none;
+                                   padding:4px 14px;border-radius:4px;cursor:pointer;font-weight:600;">
+                        🗑️ Excluir Selecionados
+                    </button>
+                </div>
+            </div>
+
+            <!-- Paginação -->
+            <div class="paginacao" id="paginacao-planilha"></div>
+        </div>
+
+        <!-- ── TELA: NOVO CADASTRO ────────────────────────────────────── -->
+        <div id="novo" class="tela">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3>📂 Novo Cadastro Manual</h3>
+                <button style="border:none;background:none;cursor:pointer;color:red;font-size:18px;"
+                        onclick="ir('home')">✖ FECHAR</button>
+            </div>
+            <div class="card">
+                <h4>📦 Dados Gerais da Caixa</h4>
+                <div class="grid-3">
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">UNIDADE</label>
+                        <input id="reg_unidade" type="text" placeholder="Ex: SEDES/DF">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">Nº DE CAIXA *</label>
+                        <input id="reg_caixa" type="text" placeholder="Ex: 045">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">TIPO DE DOCUMENTO</label>
+                        <input id="reg_tipo" type="text" placeholder="Ex: Ofício">
+                    </div>
+                </div>
+                <div class="grid-3" style="margin-top:10px;">
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">LOCALIZAÇÃO</label>
+                        <input id="reg_loc" type="text" placeholder="Ex: Arquivo Central">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">RESPONSÁVEL</label>
+                        <input id="reg_usuario" type="text" placeholder="Ex: Danilo Basilio">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:#555;">DATA LIMITE</label>
+                        <input id="reg_limite" type="text" placeholder="Ex: 22/04/2026">
+                    </div>
+                </div>
+                <hr style="margin:20px 0;">
+                <h4>📄 Processos / Servidores nesta Caixa</h4>
+                <div id="lista-itens"></div>
+                <button class="btn-side"
+                        style="border:1px solid var(--primary);width:auto;margin-top:8px;"
+                        onclick="adicionarItemForm()">
+                    ➕ Adicionar Processo/Item
+                </button>
+                <button class="btn-side"
+                        style="background:var(--success);color:white;width:100%;
+                               margin-top:20px;height:50px;font-size:15px;"
+                        onclick="finalizarCadastro()">
+                    💾 FINALIZAR E CONCLUIR CADASTRO
+                </button>
+            </div>
+        </div>
+
+    </div><!-- /conteudo -->
+</div><!-- /main -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════════════════
+const API = 'http://10.68.7.118:8000';
+const SENHA_EDICAO = '1234';
+let podeEditar    = false;
+let contadorItens = 0;
+let paginaAtual   = 1;
+let totalPaginas  = 1;
+let selecionados  = new Set();
+let cardsLiberados = new Set();
+
+function liberarEdicaoCard(id, cardId) {
+    if (cardsLiberados.has(id)) return;
+
+    const senha = prompt("Digite a senha para liberar edição:");
+
+    if (senha === SENHA_EDICAO) {
+        cardsLiberados.add(id);
+
+        const card = document.getElementById(cardId);
+
+        card.querySelectorAll('input').forEach(inp => {
+            inp.removeAttribute('readonly');
+        });
+
+        card.style.borderLeft = "4px solid #28a745";
+        card.style.background = "#f6fffa";
+
+        const lockBtn = card.querySelector('.btn-lock');
+        if (lockBtn) {
+            lockBtn.innerHTML = '🔓';
+            lockBtn.title = 'Edição Liberada';
+        }
+    } else {
+        alert("Senha incorreta.");
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════════════════════════════════
+function ir(tela) {
+    document.querySelectorAll('.tela').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.btn-side').forEach(b => b.classList.remove('active'));
+    document.getElementById(tela).style.display = 'block';
+    const btn = document.getElementById('btn-' + tela);
+    if (btn) btn.classList.add('active');
+
+    if (tela === 'home') {
+        document.getElementById('campo-busca').value = ''; // Limpa o campo de busca
+        document.getElementById('resultado-busca').innerHTML = ''; // Limpa os resultados
+        document.getElementById('info-busca').innerHTML = ''; // Limpa a info da busca
+    } else if (tela === 'cadastros') { paginaAtual = 1; carregarPlanilha(); }
+      else if (tela === 'novo' && contadorItens === 0) adicionarItemForm();
+}
+
+function toggleEdicao() {
+    const chk = document.getElementById('chk-edit');
+    if (chk.checked) {
+        const s = prompt("Digite a senha para liberar a edição:");
+        if (s === SENHA_EDICAO) {
+            podeEditar = true;
+        } else {
+            alert("Acesso negado: Senha incorreta.");
+            chk.checked = false;
+            podeEditar = false;
+        }
+    } else {
+        podeEditar = false;
+    }
+    carregarPlanilha();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PESQUISA RÁPIDA — agora exibe TODOS os campos incluindo localização
+// ══════════════════════════════════════════════════════════════════════
+async function buscar() {
+    const q = document.getElementById('campo-busca').value.trim();
+    if (!q) return;
+
+    document.getElementById('resultado-busca').innerHTML =
+        '<p style="color:#666;font-size:13px;">🔄 Buscando...</p>';
+
+    try {
+        const res  = await fetch(`${API}/buscar?q=${encodeURIComponent(q)}`);
+        const dados = await res.json();
+        const div  = document.getElementById('resultado-busca');
+
+        if (!dados.length) {
+            div.innerHTML = '<div class="card">Nenhum resultado encontrado.</div>';
+            return;
+        }
+
+        div.innerHTML = dados.map(r => {
+            const cardId = `busc-card-${r.id}`;
+            const origem  = r.origem || r.origem_excel || '—';
+            const badgeCls = origem === 'Banco SQL' ? 'badge-sql' : 'badge-xls';
+            const isSql = typeof r.id === 'number';
+            const isLiberado = cardsLiberados.has(r.id);
+            const styleExtra = isLiberado ? 'border-left: 4px solid #28a745; background: #f6fffa;' : '';
+
+            const f = (label, key, val, emoji) => {
+                if (!isSql) return `<span>${emoji} <b>${label}:</b> ${val || '—'}</span>`;
+
+                const travado = !isLiberado;
+
+                return `<span>${emoji} <b>${label}:</b> 
+                    <input type="text" 
+                           class="card-input" 
+                           data-key="${key}" 
+                           value="${esc(val)}"
+                           ${travado ? 'readonly' : ''}
+                           onchange="salvarCardBusca(${r.id}, '${cardId}')"
+                           style="width:auto; display:inline-block; border:none; border-bottom:1px dashed #ccc; background:transparent; padding:2px;">
+                </span>`;
+            };
+
+            return `
+            <div class="resultado-card" id="${cardId}" style="${styleExtra}">
+                
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                    <b>${f('Interessado', 'interessado', r.interessado, '👤')}</b>
+
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        ${isSql ? `
+                        <span onclick="liberarEdicaoCard(${r.id}, '${cardId}')"
+                              class="btn-lock"
+                              style="cursor:pointer;font-size:16px;"
+                              title="${isLiberado ? 'Edição Liberada' : 'Liberar edição'}">
+                            ${isLiberado ? '🔓' : '🔒'}
+                        </span>` : ''}
+
+                        <span class="badge ${badgeCls}">${origem}</span>
+                    </div>
+                </div>
+
+                <div class="linha">
+                    ${f('Processo', 'n_processo', r.n_processo, '📄')}
+                    ${f('Caixa', 'caixa', r.caixa, '📦')}
+                    ${f('Unidade', 'unidade', r.unidade, '🏢')}
+                </div>
+
+                <div class="linha">
+                    ${f('Localização', 'localizacao', r.localizacao, '📍')}
+                    ${f('Tipo', 'tipo_doc', r.tipo_doc, '📂')}
+                    ${f('Assunto', 'assunto', r.assunto, '📝')}
+                </div>
+
+                <div class="linha">
+                    ${f('Responsável', 'usuario', r.usuario, '👤')}
+                    ${f('Dt.Limite', 'data_limite', r.data_limite, '📅')}
+                </div>
+
+            </div>`;
+        }).join('');
+
+    } catch (e) {
+        document.getElementById('resultado-busca').innerHTML =
+            `<div class="card" style="color:red;">Erro: ${e.message}</div>`;
+    }
+}
+
+async function salvarCardBusca(id, cardId) {
+
+    if (!cardsLiberados.has(id)) {
+        alert("Registro bloqueado.");
+        return;
+    }
+    const card = document.getElementById(cardId);
+
+    const inputs = card.querySelectorAll('.card-input');
+    const dados = {};
+
+    inputs.forEach(i => dados[i.dataset.key] = i.value.trim());
+
+    try {
+        const res = await fetch(`${API}/alterar/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dados),
+        });
+        if (res.ok) {
+            card.style.background = "#d4edda";
+            setTimeout(() => card.style.background = "white", 500);
+        } else {
+            alert("Erro ao salvar.");
+        }
+    } catch {
+        alert("Erro de conexão.");
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PLANILHA — carrega do endpoint /planilha com paginação e filtro
+// ══════════════════════════════════════════════════════════════════════
+async function carregarPlanilha(pagina = paginaAtual) {
+    paginaAtual = pagina;
+    selecionados.clear();
+    atualizarBarraSelecao();
+
+    const filtro = document.getElementById('filtro-planilha').value.trim();
+    const coluna = document.getElementById('col-filtro').value;
+
+    const url = new URL(`${API}/planilha`);
+    url.searchParams.set('pagina', pagina);
+    url.searchParams.set('limite', 10);
+    if (filtro) { url.searchParams.set('filtro', filtro); url.searchParams.set('coluna', coluna); }
+
+    try {
+        const res  = await fetch(url);
+        const json = await res.json();
+        const dados = json.dados || [];
+        totalPaginas = json.total_paginas || 1;
+
+        document.getElementById('info-planilha').textContent =
+            `Página ${json.pagina} de ${json.total_paginas} | ` +
+            `Registros ${((pagina-1)*10)+1}–${Math.min(pagina*10, json.total)} de ${json.total}`;
+
+        const tbody = document.getElementById('tbody-planilha');
+        if (!dados.length) {
+            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#888;padding:20px;">Nenhum registro encontrado.</td></tr>';
+            renderPaginacao();
+            return;
+        }
+
+        const dis = podeEditar ? '' : 'disabled';
+
+        tbody.innerHTML = dados.map((r, i) => {
+            const bg = i % 2 === 0 ? '#f8f9fa' : '#ffffff';
+            const chk = selecionados.has(r.id) ? 'checked' : '';
+            return `
+            <tr style="background:${bg}; ${!podeEditar ? 'opacity:0.7;' : ''}">
+                <td style="text-align:center;">
+                    <input type="checkbox" ${chk} ${dis}
+                           onchange="toggleSel(${r.id}, this.checked)"
+                           style="width:14px;height:14px;cursor:pointer;">
+                </td>
+                <td>${r.id}</td>
+                <td><input type="text" value="${esc(r.unidade)}"    id="un-${r.id}" style="min-width:80px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.caixa)}"      id="cx-${r.id}" style="min-width:55px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.tipo_doc)}"   id="tp-${r.id}" style="min-width:90px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.n_processo)}" id="pr-${r.id}" style="min-width:140px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.volumes)}"    id="vl-${r.id}" style="min-width:40px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.assunto)}"    id="as-${r.id}" style="min-width:130px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.interessado)}"id="in-${r.id}" style="min-width:130px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.localizacao)}"id="lc-${r.id}" style="min-width:110px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.usuario)}"    id="us-${r.id}" style="min-width:100px;" ${dis}></td>
+                <td><input type="text" value="${esc(r.data_limite)}"id="dl-${r.id}" style="min-width:80px;" ${dis}></td>
+                <td>${esc(r.data_cadastro || '')}</td>
+                <td>
+                    <button onclick="salvar(${r.id})" title="Salvar" style="cursor:pointer;border:none;background:none;font-size:16px;" ${dis}>💾</button>
+                    <button onclick="excluir(${r.id})" title="Excluir" style="cursor:pointer;border:none;background:none;font-size:16px;color:red;" ${dis}>🗑️</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPaginacao();
+
+    } catch (e) {
+        document.getElementById('tbody-planilha').innerHTML =
+            `<tr><td colspan="14" style="color:red; text-align:center; padding:20px;">❌ Erro de conexão: O servidor (API) pode estar offline ou bloqueado. (${e.message})</td></tr>`;
+    }
+}
+
+function filtrarPlanilha() { carregarPlanilha(1); }
+function limparFiltro() {
+    document.getElementById('filtro-planilha').value = '';
+    document.getElementById('col-filtro').value = '';
+    carregarPlanilha(1);
+}
+
+function renderPaginacao() {
+    const div = document.getElementById('paginacao-planilha');
+    div.innerHTML = `
+        <button onclick="carregarPlanilha(1)"            ${paginaAtual===1?'disabled':''}>⏮</button>
+        <button onclick="carregarPlanilha(${paginaAtual-1})" ${paginaAtual===1?'disabled':''}>◀</button>
+        <span>Página <b>${paginaAtual}</b> de <b>${totalPaginas}</b></span>
+        <button onclick="carregarPlanilha(${paginaAtual+1})" ${paginaAtual===totalPaginas?'disabled':''}>▶</button>
+        <button onclick="carregarPlanilha(${totalPaginas})"  ${paginaAtual===totalPaginas?'disabled':''}>⏭</button>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SELEÇÃO MÚLTIPLA
+// ══════════════════════════════════════════════════════════════════════
+function toggleSel(id, checked) {
+    if (checked) selecionados.add(id); else selecionados.delete(id);
+    atualizarBarraSelecao();
+    const total = document.querySelectorAll('#tbody-planilha input[type="checkbox"]').length;
+    document.getElementById('chk-todos').checked = (selecionados.size === total && total > 0);
+}
+
+function marcarTodos(checked) {
+    document.querySelectorAll('#tbody-planilha input[type="checkbox"]').forEach(cb => {
+        cb.checked = checked;
+        const id = parseInt(cb.getAttribute('onchange').match(/\d+/)[0]);
+        if (checked) selecionados.add(id); else selecionados.delete(id);
+    });
+    atualizarBarraSelecao();
+}
+
+function atualizarBarraSelecao() {
+    const barra = document.getElementById('barra-selecao');
+    document.getElementById('qtd-sel').textContent = selecionados.size;
+    barra.style.display = selecionados.size > 0 ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SALVAR / EXCLUIR / EXCLUIR EM LOTE
+// ══════════════════════════════════════════════════════════════════════
+async function salvar(id) {
+    if (!podeEditar) return;
+    const dados = {
+        unidade:     document.getElementById(`un-${id}`).value,
+        caixa:       document.getElementById(`cx-${id}`).value,
+        tipo_doc:    document.getElementById(`tp-${id}`).value,
+        n_processo:  document.getElementById(`pr-${id}`).value,
+        volumes:     document.getElementById(`vl-${id}`).value,
+        assunto:     document.getElementById(`as-${id}`).value,
+        interessado: document.getElementById(`in-${id}`).value,
+        localizacao: document.getElementById(`lc-${id}`).value,
+        usuario:     document.getElementById(`us-${id}`).value,
+        data_limite: document.getElementById(`dl-${id}`).value,
+    };
+    const res = await fetch(`${API}/alterar/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(dados),
+    });
+    alert(res.ok ? '✅ Salvo com sucesso!' : '❌ Erro ao salvar.');
+}
+
+async function excluir(id) {
+    if (!podeEditar) return;
+    if (!confirm(`Excluir permanentemente o registro ID ${id}?`)) return;
+    const res = await fetch(`${API}/excluir/${id}`, { method: 'DELETE' });
+    if (res.ok) { alert('✅ Excluído!'); carregarPlanilha(); }
+    else alert('❌ Erro ao excluir.');
+}
+
+async function excluirLote() {
+    if (!podeEditar) return;
+    if (!selecionados.size) return;
+    if (!confirm(`Excluir permanentemente ${selecionados.size} registro(s)?`)) return;
+    const res = await fetch(`${API}/excluir-lote`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ids: Array.from(selecionados) }),
+    });
+    if (res.ok) {
+        const j = await res.json();
+        alert(`✅ ${j.excluidos} registro(s) excluído(s)!`);
+        selecionados.clear();
+        carregarPlanilha();
+    } else alert('❌ Erro ao excluir em lote.');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FORMULÁRIO DE CADASTRO
+// ══════════════════════════════════════════════════════════════════════
+function adicionarItemForm() {
+    contadorItens++;
+    const div = document.createElement('div');
+    div.className = 'item-cadastro';
+    div.innerHTML = `
+        <small style="font-weight:600;color:var(--primary);">Item #${contadorItens}</small>
+        <div class="grid-2" style="margin-top:8px;">
+            <input class="item-proc" placeholder="Nº DE PROCESSO OU SERVIDOR">
+            <input class="item-vol"  placeholder="VOLUMES" value="1">
+        </div>
+        <input class="item-int" placeholder="INTERESSADO (NOME COMPLETO)"
+               style="margin-top:8px;width:100%;">
+        <input class="item-ass" placeholder="ASSUNTO"
+               style="margin-top:8px;width:100%;">`;
+    document.getElementById('lista-itens').appendChild(div);
+}
+
+async function finalizarCadastro() {
+    const unidade = document.getElementById('reg_unidade').value.trim();
+    const caixa   = document.getElementById('reg_caixa').value.trim();
+    const tipo    = document.getElementById('reg_tipo').value.trim();
+    const loc     = document.getElementById('reg_loc').value.trim();
+    const usuario = document.getElementById('reg_usuario').value.trim();
+    const limite  = document.getElementById('reg_limite').value.trim();
+
+    if (!caixa) { alert('⚠️ O número da caixa é obrigatório!'); return; }
+
+    const procs = document.querySelectorAll('.item-proc');
+    const vols  = document.querySelectorAll('.item-vol');
+    const ints  = document.querySelectorAll('.item-int');
+    const asss  = document.querySelectorAll('.item-ass');
+
+    const itens = [];
+    procs.forEach((p, i) => {
+        if (p.value.trim()) {
+            itens.push({
+                unidade,
+                caixa,
+                tipo_doc:    tipo,
+                n_processo:  p.value.trim(),
+                volumes:     vols[i]?.value || '1',
+                assunto:     asss[i]?.value || '',
+                interessado: ints[i]?.value || '',
+                localizacao: loc,
+                usuario,
+                data_limite: limite,
+            });
+        }
+    });
+
+    if (!itens.length) { alert('⚠️ Adicione pelo menos um processo!'); return; }
+
+    try {
+        const res = await fetch(`${API}/novo-lote`, {
+            method:  'POST',
+            headers: {'Content-Type': 'application/json'},
+            body:    JSON.stringify(itens),
+        });
+        if (res.ok) {
+            alert(`✅ ${itens.length} item(ns) cadastrado(s) com sucesso!`);
+            // Limpa o formulário
+            document.getElementById('reg_caixa').value   = '';
+            document.getElementById('reg_tipo').value    = '';
+            document.getElementById('reg_loc').value     = '';
+            document.getElementById('reg_usuario').value = '';
+            document.getElementById('reg_limite').value  = '';
+            document.getElementById('lista-itens').innerHTML = '';
+            contadorItens = 0;
+            adicionarItemForm();
+        } else {
+            const err = await res.json();
+            alert('❌ Erro: ' + (err.detail || 'Verifique o servidor.'));
+        }
+    } catch (e) {
+        alert('❌ Sem conexão com o servidor.\nVerifique se o api.py está rodando.');
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// UTILITÁRIOS
+// ══════════════════════════════════════════════════════════════════════
+function esc(v) {
+    return String(v ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function toggleDarkMode() {
+    const isDark = document.getElementById('chk-dark').checked;
+    document.body.classList.toggle('dark-mode', isDark);
+    localStorage.setItem('suad-dark-mode', isDark);
+}
+
+// Iniciar modo escuro se estiver salvo no navegador
+if (localStorage.getItem('suad-dark-mode') === 'true') {
+    document.getElementById('chk-dark').checked = true;
+    document.body.classList.add('dark-mode');
+}
+
+// Inicia na tela de pesquisa
+ir('home');
+</script>
+</body>
+</html>

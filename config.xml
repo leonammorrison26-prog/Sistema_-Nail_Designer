@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<app>
+  <salon>
+    <name>Samara Eduarda Nail Designer</name>
+    <subtitle>Manicure e Pedicure</subtitle>
+    <phone>(61) 99684-6299</phone>
+    <address>Estância Mestre D' Armas 06 Modulo B - Planaltina DF</address>
+  </salon>
+  <schedule>
+    <start>08:00</start>
+    <end>18:00</end>
+    <interval>30</interval>
+  </schedule>
+  <social>
+    <instagram></instagram>
+    <facebook></facebook>
+    <tiktok></tiktok>
+  </social>
+</app>

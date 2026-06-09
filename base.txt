@@ -1,0 +1,16 @@
+prompt
+
+no app.py Quero um sistema simples em PHP SimpleXML e  HTML com banco de dados MySQL e usando Tailyind para deixar bonito. Que será executado no servidor render
+Esse sistema é para um salão de unhas manicure e pedicure .
+
+Ele precisa ter login de usuário, onde cada um tem um tipo: admin, manicure .
+
+Só o admin pode criar ou apagar outros usuários importantes (admin,manicure).
+
+oq eu quero do sistema controle de agenda com horario, onde o cliente vai entra no sistema e marca horario disponovel e com qual manicure, e na pagina inical ter o catalago com as fotos e valor para a cliente escolher o serviço
+
+
+
+Quero que as telas sejam simples, com um menu em cima para navegar, e que eu consiga cadastrar, editar e ver as informações de forma fácil.
+
+ate coloquei um modelo do sistema q uso no serviço no arquivo (INDEX.HTML)
