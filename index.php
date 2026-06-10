@@ -395,6 +395,15 @@ if ($page === 'logout') {
     exit;
 }
 
+$loginPages = ['agenda'];
+$adminPages = ['marketing', 'usuarios', 'servicos'];
+
+if (in_array($page, $adminPages, true)) {
+    require_admin();
+} elseif (in_array($page, $loginPages, true)) {
+    require_login();
+}
+
 $services = $pdo->query('SELECT * FROM services WHERE active = 1 ORDER BY name')->fetchAll();
 $manicures = $pdo->query("SELECT id, name FROM users WHERE role = 'manicure' ORDER BY name")->fetchAll();
 $stmt = $pdo->query("
@@ -419,8 +428,8 @@ $flash = flash();
 
 function nav_link(string $target, string $label, string $current): string
 {
-    $active = $target === $current ? 'bg-pink-600 text-white' : 'text-slate-700 hover:bg-pink-50 hover:text-pink-700';
-    return '<a class="rounded-md px-3 py-2 text-sm font-semibold ' . $active . '" href="?page=' . e($target) . '">' . e($label) . '</a>';
+    $active = $target === $current ? 'bg-pink-600 text-white shadow-sm' : 'text-stone-950 hover:bg-rose-50 hover:text-pink-700';
+    return '<a class="rounded-md px-5 py-3 text-sm font-semibold transition ' . $active . '" href="?page=' . e($target) . '">' . e($label) . '</a>';
 }
 ?>
 <!DOCTYPE html>
@@ -429,13 +438,44 @@ function nav_link(string $target, string $label, string $current): string
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e((string)$config->salon->name) ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --rose-ink: #8f3f39;
+            --rose-soft: #f8d8d9;
+            --rose-main: #de2a7a;
+            --paper: #fffaf8;
+        }
+
+        body {
+            font-family: Inter, system-ui, sans-serif;
+        }
+
+        .brand-serif {
+            font-family: "Cormorant Garamond", Georgia, serif;
+        }
+
+        .brand-script {
+            font-family: Allura, cursive;
+        }
+
+        .home-hero {
+            background:
+                linear-gradient(90deg, rgba(255, 246, 245, .98) 0%, rgba(255, 246, 245, .9) 34%, rgba(255, 246, 245, .35) 58%, rgba(235, 134, 134, .2) 100%),
+                url("https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1800&q=85");
+            background-position: center;
+            background-size: cover;
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-rose-50 text-slate-800">
+<body class="min-h-screen bg-[#fff7f5] text-stone-900">
     <header class="sticky top-0 z-20 border-b border-rose-100 bg-white/95 shadow-sm backdrop-blur">
-        <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
             <a href="?page=inicio" class="flex items-center gap-3">
-                <span class="grid h-10 w-10 place-items-center rounded-lg bg-pink-600 text-lg font-bold text-white">S</span>
+                <img class="h-[66px] w-[66px] rounded-xl border border-rose-100 bg-white object-contain p-1 shadow-sm" src="assets/logo%20samara.png" alt="<?= e((string)$config->salon->name) ?>">
                 <span>
                     <strong class="block text-lg leading-tight"><?= e((string)$config->salon->name) ?></strong>
                     <small class="text-slate-500"><?= e((string)$config->salon->subtitle) ?></small>
@@ -447,10 +487,10 @@ function nav_link(string $target, string $label, string $current): string
                 <?= nav_link('redes', 'Redes Sociais', $page) ?>
                 <?php if (is_logged_in()): ?>
                     <?= nav_link('agenda', 'Agenda', $page) ?>
+                    <?= nav_link('servicos', 'Serviços', $page) ?>
+                    <?= nav_link('usuarios', 'Usuários', $page) ?>
                     <?php if (is_admin()): ?>
                         <?= nav_link('marketing', 'Marketing', $page) ?>
-                        <?= nav_link('servicos', 'Serviços', $page) ?>
-                        <?= nav_link('usuarios', 'Usuários', $page) ?>
                     <?php endif; ?>
                     <a class="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" href="?page=logout">Sair</a>
                 <?php else: ?>
@@ -460,7 +500,7 @@ function nav_link(string $target, string $label, string $current): string
         </div>
     </header>
 
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="<?= $page === 'inicio' ? '' : 'mx-auto max-w-7xl px-4 py-8' ?>">
         <?php if ($flash): ?>
             <div class="mb-6 rounded-lg border px-4 py-3 text-sm font-medium <?= $flash['type'] === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' ?>">
                 <?= e($flash['message']) ?>
@@ -468,40 +508,74 @@ function nav_link(string $target, string $label, string $current): string
         <?php endif; ?>
 
         <?php if ($page === 'inicio'): ?>
-            <section class="mb-8 grid gap-6 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-                <div>
-                    <p class="mb-2 text-sm font-bold uppercase tracking-wide text-pink-700"><?= e((string)$config->salon->subtitle) ?></p>
-                    <h1 class="max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl"><?= e((string)$config->salon->name) ?></h1>
-                    <p class="mt-4 max-w-2xl text-lg text-slate-600">Escolha seu serviço, veja os valores e marque um horário disponível com a profissional que preferir.</p>
-                    <div class="mt-6 flex flex-wrap gap-3">
-                        <a href="?page=agendar" class="rounded-lg bg-pink-600 px-5 py-3 font-bold text-white shadow-sm hover:bg-pink-700">Marcar horário</a>
-                        <a href="#catalogo" class="rounded-lg border border-pink-200 bg-white px-5 py-3 font-bold text-pink-700 hover:bg-pink-50">Ver catálogo</a>
+            <section class="home-hero border-b border-rose-100">
+                <div class="mx-auto grid min-h-[660px] max-w-[1440px] gap-10 px-6 py-10 lg:grid-cols-[1fr_330px] lg:px-24 lg:py-16">
+                    <div class="flex max-w-4xl flex-col justify-center">
+                        <p class="brand-serif text-[clamp(58px,8vw,112px)] font-bold uppercase leading-[.78] text-[#bd665d]">
+                            Samara<br>Eduarda
+                        </p>
+                        <p class="brand-script mt-5 text-[clamp(46px,5vw,70px)] leading-none text-[#b76862]">Nail Designer</p>
+
+                        <div class="mt-8 grid max-w-2xl gap-4 text-xl leading-relaxed text-[#7b3935]">
+                            <p class="flex gap-4">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">+</span>
+                                <span>Realce sua beleza com unhas impecáveis e atendimento personalizado.</span>
+                            </p>
+                            <p class="flex gap-4">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">~</span>
+                                <span>Especialista em unhas que valorizam sua autoestima.</span>
+                            </p>
+                        </div>
+
+                        <div class="mt-7 flex flex-wrap gap-4">
+                            <a href="?page=agendar" class="rounded-lg bg-pink-600 px-9 py-4 text-lg font-black text-white shadow-sm transition hover:bg-pink-700">Agendar Agora</a>
+                            <a href="#catalogo" class="rounded-lg border border-pink-300 bg-white/70 px-9 py-4 text-lg font-black text-pink-600 shadow-sm transition hover:bg-white">Ver Trabalhos</a>
+                        </div>
+
+                        <div class="mt-7 grid max-w-4xl gap-4 rounded-xl border border-rose-100 bg-white/70 p-5 shadow-sm backdrop-blur sm:grid-cols-3">
+                            <div class="border-rose-100 sm:border-r">
+                                <strong class="brand-serif block text-2xl text-stone-950">★★★★★ 5.0</strong>
+                                <span class="text-sm text-[#7b3935]">Nossas clientes recomendam</span>
+                            </div>
+                            <div class="border-rose-100 sm:border-r sm:px-8">
+                                <strong class="brand-serif block text-2xl text-stone-950">+300</strong>
+                                <span class="text-sm text-[#7b3935]">atendimentos realizados</span>
+                            </div>
+                            <div class="sm:px-8">
+                                <strong class="brand-serif block text-2xl text-stone-950">+200</strong>
+                                <span class="text-sm text-[#7b3935]">clientes satisfeitas</span>
+                            </div>
+                        </div>
                     </div>
+
+                    <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
+                        <img class="h-[370px] w-full rounded-xl object-cover object-center" src="assets/01.jpeg" alt="Samara Eduarda Nail Designer">
+                        <div class="px-6 py-7 text-center text-[#743632]">
+                            <p class="text-xs font-bold uppercase tracking-wide text-[#bd665d]">Sobre mim</p>
+                            <p class="brand-serif mt-4 text-lg leading-relaxed">Olá! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.</p>
+                            <p class="brand-script mt-6 text-3xl text-[#a65a54]">Samara Eduarda</p>
+                        </div>
+                    </aside>
                 </div>
-                <img class="h-96 w-full rounded-lg bg-rose-50 object-contain object-center shadow-sm" src="assets/01.jpeg" alt="Samara Eduarda Nail Designer">
             </section>
 
-            <section id="catalogo">
-                <div class="mb-4 flex items-end justify-between gap-3">
-                    <div>
-                        <h2 class="text-2xl font-black text-slate-950">Catálogo de serviços</h2>
-                        <p class="text-slate-600">Fotos, duração e valores para facilitar a escolha.</p>
-                    </div>
+            <section id="catalogo" class="mx-auto max-w-[1440px] px-6 py-10 lg:px-24">
+                <div class="mb-4 flex items-end gap-4">
+                    <h2 class="brand-serif text-3xl font-bold uppercase tracking-wide text-stone-950">Nossos Serviços</h2>
+                    <span class="mb-3 h-px flex-1 bg-rose-200"></span>
                 </div>
-                <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                     <?php foreach ($services as $service): ?>
-                        <article class="overflow-hidden rounded-lg border border-rose-100 bg-white shadow-sm">
-                            <img class="h-48 w-full object-cover" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=900&q=80') ?>" alt="<?= e($service['name']) ?>">
+                        <article class="overflow-hidden rounded-lg border border-rose-100 bg-white text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <img class="h-32 w-full object-cover" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=700&q=85') ?>" alt="<?= e($service['name']) ?>">
                             <div class="p-5">
-                                <div class="flex items-start justify-between gap-3">
-                                    <h3 class="text-lg font-black text-slate-950"><?= e($service['name']) ?></h3>
-                                    <span class="rounded-md bg-pink-50 px-2 py-1 text-sm font-black text-pink-700"><?= money_br($service['price']) ?></span>
+                                <h3 class="brand-serif text-2xl font-bold text-stone-950"><?= e($service['name']) ?></h3>
+                                <p class="mt-1 min-h-10 text-sm leading-relaxed text-stone-700"><?= e($service['description']) ?></p>
+                                <div class="mt-4 flex items-center justify-center gap-2 text-sm">
+                                    <span class="rounded-md bg-pink-50 px-3 py-1 font-black text-pink-700"><?= money_br($service['price']) ?></span>
+                                    <span class="rounded-md bg-rose-50 px-3 py-1 font-bold text-[#7b3935]"><?= (int)$service['duration_minutes'] ?> min</span>
                                 </div>
-                                <p class="mt-2 min-h-12 text-sm text-slate-600"><?= e($service['description']) ?></p>
-                                <div class="mt-4 flex items-center justify-between text-sm text-slate-500">
-                                    <span><?= (int)$service['duration_minutes'] ?> min</span>
-                                    <a class="font-bold text-pink-700 hover:text-pink-800" href="?page=agendar&service=<?= (int)$service['id'] ?>">Agendar</a>
-                                </div>
+                                <a class="mt-4 inline-flex rounded-md border border-pink-200 px-4 py-2 text-sm font-black text-pink-700 transition hover:bg-pink-50" href="?page=agendar&service=<?= (int)$service['id'] ?>">Agendar</a>
                             </div>
                         </article>
                     <?php endforeach; ?>
@@ -618,7 +692,6 @@ function nav_link(string $target, string $label, string $current): string
             </section>
         <?php elseif ($page === 'marketing'): ?>
             <?php
-            require_admin();
             $marketingServices = $pdo->query('SELECT id, name, price, description, image_url FROM services WHERE active = 1 ORDER BY name')->fetchAll();
             $stmt = $pdo->query("
                 SELECT mp.*, s.name AS service_name, s.price
@@ -720,7 +793,6 @@ function nav_link(string $target, string $label, string $current): string
         <?php elseif ($page === 'login'): ?>
             <section class="mx-auto max-w-md rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
                 <h1 class="text-2xl font-black text-slate-950">Login da equipe</h1>
-                <p class="mt-1 text-sm text-slate-600">Admin padrão: admin / 123456</p>
                 <form method="post" class="mt-5 space-y-4">
                     <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                     <input type="hidden" name="action" value="login">
@@ -737,7 +809,6 @@ function nav_link(string $target, string $label, string $current): string
             </section>
         <?php elseif ($page === 'agenda'): ?>
             <?php
-            require_login();
             $params = [];
             $where = '';
             if (!is_admin()) {
@@ -899,7 +970,6 @@ function nav_link(string $target, string $label, string $current): string
             </section>
         <?php elseif ($page === 'usuarios'): ?>
             <?php
-            require_admin();
             $users = $pdo->query('SELECT id, name, email, phone, role, created_at FROM users ORDER BY name')->fetchAll();
             ?>
             <section class="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
@@ -944,7 +1014,6 @@ function nav_link(string $target, string $label, string $current): string
             </section>
         <?php elseif ($page === 'servicos'): ?>
             <?php
-            require_admin();
             $allServices = $pdo->query('SELECT * FROM services ORDER BY active DESC, name')->fetchAll();
             ?>
             <section>
