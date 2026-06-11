@@ -7,10 +7,6 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/notifications.php';
 
-// CHAVINHA PARA ATIVAR/DESATIVAR O TEMPO DE ATENDIMENTO
-// Altere para true para ATIVAR ou false para OCULTAR/DESATIVAR
-$exibir_tempo_atendimento = false; 
-
 try {
     ensure_schema();
 } catch (Throwable $exception) {
@@ -36,7 +32,7 @@ function uploaded_service_image(): ?string
     }
 
     if ($_FILES['service_image']['error'] !== UPLOAD_ERR_OK) {
-        redirect_with('servicos', 'Não foi possível enviar a foto. Tente novamente.', 'error');
+        redirect_with('servicos', 'NÃ£o foi possÃ­vel enviar a foto. Tente novamente.', 'error');
     }
 
     $tmpName = $_FILES['service_image']['tmp_name'];
@@ -52,22 +48,16 @@ function uploaded_service_image(): ?string
         redirect_with('servicos', 'Envie uma foto nos formatos JPG, PNG, WEBP ou GIF.', 'error');
     }
 
-    // CORREÇÃO ROBUSTA DE DIRETÓRIOS
-    $assetsDir = __DIR__ . '/assets';
-    $uploadDir = $assetsDir . '/uploads';
-
-    if (!is_dir($assetsDir)) {
-        mkdir($assetsDir, 0775, true);
-    }
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0775, true);
+    $uploadDir = __DIR__ . '/assets/uploads';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true)) {
+        redirect_with('servicos', 'NÃ£o foi possÃ­vel criar a pasta de uploads.', 'error');
     }
 
     $filename = 'servico-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $allowedTypes[$mimeType];
     $destination = $uploadDir . '/' . $filename;
 
     if (!move_uploaded_file($tmpName, $destination)) {
-        redirect_with('servicos', 'Não foi possível salvar a foto enviada.', 'error');
+        redirect_with('servicos', 'NÃ£o foi possÃ­vel salvar a foto enviada.', 'error');
     }
 
     return 'assets/uploads/' . $filename;
@@ -204,8 +194,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $xml->social->{$field} = trim($_POST[$field] ?? '');
         }
 
+        if (!isset($xml->salon)) {
+            $xml->addChild('salon');
+        }
+        $xml->salon->show_duration = isset($_POST['show_duration']) ? '1' : '0';
+
         $xml->asXML($configPath);
-        redirect_with('redes', 'Redes sociais updated.');
+        redirect_with('redes', 'Configurações atualizadas.');
     }
 
     if ($action === 'save_marketing_post') {
@@ -269,12 +264,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $normalizedPrice = str_contains($rawPrice, ',')
             ? str_replace(',', '.', str_replace('.', '', $rawPrice))
             : $rawPrice;
+        $rawPriceDecorated = trim((string)($_POST['price_decorated'] ?? '0'));
+        $normalizedPriceDecorated = str_contains($rawPriceDecorated, ',')
+            ? str_replace(',', '.', str_replace('.', '', $rawPriceDecorated))
+            : $rawPriceDecorated;
         $uploadedImage = uploaded_service_image();
 
         $data = [
             trim($_POST['name'] ?? ''),
             trim($_POST['description'] ?? ''),
             (float)$normalizedPrice,
+            (float)$normalizedPriceDecorated,
             max(15, (int)($_POST['duration_minutes'] ?? 30)),
             $uploadedImage ?? trim($_POST['image_url'] ?? ''),
             isset($_POST['active']) ? 1 : 0,
@@ -287,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare('
                 UPDATE services
-                SET name = ?, description = ?, price = ?, duration_minutes = ?, image_url = ?, active = ?
+                SET name = ?, description = ?, price = ?, price_decorated = ?, duration_minutes = ?, image_url = ?, active = ?
                 WHERE id = ?
             ');
             $stmt->execute([...$data, $id]);
@@ -295,8 +295,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt = $pdo->prepare('
-            INSERT INTO services (name, description, price, duration_minutes, image_url, active)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO services (name, description, price, price_decorated, duration_minutes, image_url, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ');
         $stmt->execute($data);
         redirect_with('servicos', 'Serviço cadastrado.');
@@ -395,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        redirect_with('agenda', 'Agendamento updated.');
+        redirect_with('agenda', 'Agendamento atualizado.');
     }
 }
 
@@ -567,16 +567,12 @@ function nav_link(string $target, string $label, string $current): string
                             <div class="p-5">
                                 <h3 class="brand-serif text-2xl font-bold text-stone-950"><?= e($service['name']) ?></h3>
                                 <p class="mt-1 min-h-10 text-sm leading-relaxed text-stone-700"><?= e($service['description']) ?></p>
-                                
-                                <div class="mt-3 text-xs text-stone-600 font-medium space-y-0.5">
-                                    <div>Sem decoração: <span class="text-pink-700 font-bold">115,00</span></div>
-                                    <div>Com decoração: <span class="text-pink-700 font-bold">125,00</span></div>
-                                </div>
-
-                                <div class="mt-4 flex items-center justify-center gap-2 text-sm">
-                                    <span class="rounded-md bg-pink-50 px-3 py-1 font-black text-pink-700"><?= money_br($service['price']) ?></span>
-                                    
-                                    <?php if ($exibir_tempo_atendimento): ?>
+                                <div class="mt-4 flex flex-col items-center gap-2 text-sm">
+                                    <div class="flex flex-wrap justify-center gap-2">
+                                        <span class="rounded-md bg-pink-50 px-3 py-1 text-xs font-bold text-pink-700">Sem decoração: <?= money_br($service['price']) ?></span>
+                                        <span class="rounded-md bg-pink-100 px-3 py-1 text-xs font-bold text-pink-800">Com decoração: <?= money_br($service['price_decorated'] ?? 0) ?></span>
+                                    </div>
+                                    <?php if ((string)$config->salon->show_duration === '1'): ?>
                                         <span class="rounded-md bg-rose-50 px-3 py-1 font-bold text-[#7b3935]"><?= (int)$service['duration_minutes'] ?> min</span>
                                     <?php endif; ?>
                                 </div>
@@ -635,7 +631,7 @@ function nav_link(string $target, string $label, string $current): string
                                 <option value="">Selecione</option>
                                 <?php foreach ($services as $service): ?>
                                     <option value="<?= (int)$service['id'] ?>" <?= selected((string)($_GET['service'] ?? ''), (string)$service['id']) ?>>
-                                        <?= e($service['name']) ?> - <?= money_br($service['price']) ?>
+                                        <?= e($service['name']) ?> - Sem: <?= money_br($service['price']) ?> / Com: <?= money_br($service['price_decorated'] ?? 0) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -670,12 +666,14 @@ function nav_link(string $target, string $label, string $current): string
                 </form>
             </section>
         <?php elseif ($page === 'redes'): ?>
-            <?php $socialLinks = [
+            <?php
+            $socialLinks = [
                 'WhatsApp' => whatsapp_link((string)$config->salon->phone),
                 'Instagram' => trim((string)($config->social->instagram ?? '')),
                 'Facebook' => trim((string)($config->social->facebook ?? '')),
                 'TikTok' => trim((string)($config->social->tiktok ?? '')),
-            ]; ?>
+            ];
+            ?>
             <section class="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
                 <div>
                     <h1 class="text-3xl font-black text-slate-950">Redes Sociais</h1>
@@ -691,6 +689,7 @@ function nav_link(string $target, string $label, string $current): string
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
+
                     <?php if (is_admin()): ?>
                         <form method="post" class="mt-6 grid gap-4 border-t border-slate-100 pt-5">
                             <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
@@ -707,597 +706,590 @@ function nav_link(string $target, string $label, string $current): string
                                 <span class="mb-1 block text-sm font-bold text-slate-700">TikTok</span>
                                 <input name="tiktok" value="<?= e((string)($config->social->tiktok ?? '')) ?>" placeholder="https://tiktok.com/@seu_perfil" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
+                            <label class="flex items-center gap-3 cursor-pointer py-2">
+                                <input type="checkbox" name="show_duration" value="1" <?= (string)$config->salon->show_duration === '1' ? 'checked' : '' ?> class="sr-only peer">
+                                <div class="relative w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                                <span class="text-sm font-bold text-slate-700">Exibir tempo de atendimento no catálogo</span>
+                            </label>
                             <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Salvar redes sociais</button>
                         </form>
                     <?php endif; ?>
                 </div>
             </section>
-        <?php elseif ($page === 'login'): ?>
-            <div class="mx-auto max-w-md rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
-                <h1 class="text-2xl font-black text-slate-950">Acesso Restrito</h1>
-                <p class="mt-1 text-sm text-slate-600">Área exclusiva para manicures e administradores.</p>
-                <form method="post" class="mt-5 grid gap-4">
-                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                    <input type="hidden" name="action" value="login">
-                    <label class="block">
-                        <span class="text-sm font-bold text-slate-700">E-mail</span>
-                        <input type="email" required name="email" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                    </label>
-                    <label class="block">
-                        <span class="text-sm font-bold text-slate-700">Senha</span>
-                        <input type="password" required name="password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                    </label>
-                    <button class="mt-2 rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Entrar no painel</button>
-                </form>
-            </div>
-        <?php elseif ($page === 'agenda'): ?>
+        <?php elseif ($page === 'marketing'): ?>
             <?php
-            $selectedManicureId = is_admin() ? (int)($_GET['manicure_id'] ?? current_user()['id']) : (int)current_user()['id'];
-            $appointmentsSql = "
-                SELECT a.*, s.name AS service_name, s.price AS service_price, u.name AS manicure_name
-                FROM appointments a
-                JOIN services s ON s.id = a.service_id
-                JOIN users u ON u.id = a.manicure_id
-                WHERE a.appointment_date >= CURDATE()
-            ";
-            $appointmentsParams = [];
-            if (!is_admin()) {
-                $appointmentsSql .= " AND a.manicure_id = ?";
-                $appointmentsParams[] = $selectedManicureId;
-            } else if (isset($_GET['manicure_id']) && $_GET['manicure_id'] !== '') {
-                $appointmentsSql .= " AND a.manicure_id = ?";
-                $appointmentsParams[] = $selectedManicureId;
-            }
-            $appointmentsSql .= " ORDER BY a.appointment_date ASC, a.appointment_time ASC";
-            $stmt = $pdo->prepare($appointmentsSql);
-            $stmt->execute($appointmentsParams);
-            $agendaAppointments = $stmt->fetchAll();
-
-            $availSql = "SELECT ma.*, TIME_FORMAT(ma.available_time, '%H:%i') AS formatted_time FROM manicure_availability ma WHERE ma.available_date >= CURDATE()";
-            $availParams = [];
-            if (!is_admin()) {
-                $availSql .= " AND ma.manicure_id = ?";
-                $availParams[] = $selectedManicureId;
-            } else if (isset($_GET['manicure_id']) && $_GET['manicure_id'] !== '') {
-                $availSql .= " AND ma.manicure_id = ?";
-                $availParams[] = $selectedManicureId;
-            }
-            $availSql .= " ORDER BY ma.available_date ASC, ma.available_time ASC";
-            $stmt = $pdo->prepare($availSql);
-            $stmt->execute($availParams);
-            $myAvailability = $stmt->fetchAll();
+            $marketingServices = $pdo->query('SELECT id, name, price, price_decorated, description, image_url FROM services WHERE active = 1 ORDER BY name')->fetchAll();
+            $stmt = $pdo->query("
+                SELECT mp.*, s.name AS service_name, s.price
+                FROM marketing_posts mp
+                LEFT JOIN services s ON s.id = mp.service_id
+                ORDER BY COALESCE(mp.scheduled_for, mp.created_at) DESC
+                LIMIT 60
+            ");
+            $marketingPosts = $stmt->fetchAll();
             ?>
-            <h1 class="text-3xl font-black text-slate-950">Controle da Agenda</h1>
-            <p class="mt-1 text-slate-600">Gerencie os horários marcados pelas clientes e sua disponibilidade de atendimento.</p>
+            <section class="grid gap-6 lg:grid-cols-[.9fr_1.1fr]">
+                <div class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                    <h1 class="text-2xl font-black text-slate-950">Marketing / Redes Sociais</h1>
+                    <p class="mt-1 text-sm text-slate-600">Monte uma arte do catálogo, salve o planejamento e baixe a imagem para postar no Status.</p>
 
-            <?php if (is_admin()): ?>
-                <div class="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <form method="get" class="flex flex-wrap items-center gap-3">
-                        <input type="hidden" name="page" value="agenda">
-                        <label class="text-sm font-bold text-slate-700">Filtrar por Profissional:</label>
-                        <select name="manicure_id" onchange="this.form.submit()" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
-                            <?php foreach ($manicures as $m): ?>
-                                <option value="<?= (int)$m['id'] ?>" <?= selected((string)$selectedManicureId, (string)$m['id']) ?>><?= e($m['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <form method="post" class="mt-5 grid gap-4">
+                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                        <input type="hidden" name="action" value="save_marketing_post">
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Serviço do catálogo</span>
+                            <select required name="service_id" id="marketing_service" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                <option value="">Selecione</option>
+                                <?php foreach ($marketingServices as $service): ?>
+                                    <option value="<?= (int)$service['id'] ?>"><?= e($service['name']) ?> - <?= money_br($service['price']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Onde postar</span>
+                            <select name="channel" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                <option value="both">Instagram e WhatsApp Status</option>
+                                <option value="instagram">Instagram</option>
+                                <option value="whatsapp_status">WhatsApp Status</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Agendar para</span>
+                            <input type="datetime-local" name="scheduled_for" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Legenda</span>
+                            <textarea required name="caption" id="marketing_caption" rows="4" placeholder="Ex: Agenda aberta para essa semana. Chame no WhatsApp e garanta seu horário." class="w-full rounded-md border border-slate-300 px-3 py-2"></textarea>
+                        </label>
+                        <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Salvar post</button>
                     </form>
                 </div>
-            <?php endif; ?>
 
-            <div class="mt-8 grid gap-8 lg:grid-cols-[1.3fr_.7fr]">
-                <div>
-                    <h2 class="text-xl font-bold text-slate-900">Horários Agendados</h2>
-                    <div class="mt-4 space-y-3">
-                        <?php if ($agendaAppointments === []): ?>
-                            <p class="text-sm italic text-slate-500">Nenhum agendamento futuro encontrado.</p>
-                        <?php else: ?>
-                            <?php foreach ($agendaAppointments as $app): ?>
-                                <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm flex flex-wrap justify-between items-center gap-4">
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-sm font-black text-slate-950"><?= e($app['client_name']) ?></span>
-                                            <span class="rounded-full px-2 py-0.5 text-xs font-bold uppercase <?= $app['status'] === 'confirmado' ? 'bg-emerald-100 text-emerald-800' : ($app['status'] === 'cancelado' ? 'bg-red-100 text-red-800' : ($app['status'] === 'concluido' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')) ?>">
-                                                <?= e($app['status']) ?>
-                                            </span>
-                                        </div>
-                                        <div class="mt-1 text-xs text-slate-600 space-y-0.5">
-                                            <p>🗓️ <strong><?= date('d/m/Y', strtotime($app['appointment_date'])) ?> às <?= date('H:i', strtotime($app['appointment_time'])) ?></strong></p>
-                                            <p>💅 Serviço: <?= e($app['service_name']) ?> (<?= money_br($app['service_price']) ?>)</p>
-                                            <p>📱 WhatsApp: <a class="text-pink-600 hover:underline font-semibold" href="<?= e(whatsapp_link($app['client_phone'])) ?>" target="_blank"><?= e($app['client_phone']) ?></a></p>
-                                            <?php if (is_admin()): ?><p>👩 Manicure: <?= e($app['manicure_name']) ?></p><?php endif; ?>
-                                            <?php if ($app['notes']): ?><p class="italic text-slate-500 mt-1">📝 Obs: "<?= e($app['notes']) ?>"</p><?php endif; ?>
-                                        </div>
-                                    </div>
-                                    <form method="post" class="flex gap-1">
-                                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                        <input type="hidden" name="action" value="update_appointment">
-                                        <input type="hidden" name="id" value="<?= (int)$app['id'] ?>">
-                                        <?php if ($app['status'] === 'marcado'): ?>
-                                            <button name="status" value="confirmado" class="rounded bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700">Confirmar</button>
-                                        <?php endif; ?>
-                                        <?php if ($app['status'] !== 'concluido' && $app['status'] !== 'cancelado'): ?>
-                                            <button name="status" value="concluido" class="rounded bg-blue-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-blue-700">Concluir</button>
-                                            <button name="status" value="cancelado" class="rounded bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-200">Cancelar</button>
-                                        <?php endif; ?>
-                                    </form>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
+                <div class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                    <h2 class="text-2xl font-black text-slate-950">Arte pronta</h2>
+                    <div class="mt-4 grid gap-4 lg:grid-cols-[360px_1fr]">
+                        <canvas id="marketing_canvas" width="1080" height="1920" class="aspect-[9/16] w-full max-w-[360px] rounded-lg border border-rose-100 bg-rose-50"></canvas>
+                        <div class="space-y-3 text-sm text-slate-600">
+                            <p>A prévia usa a foto e o preço do serviço selecionado. Depois de montar, baixe a imagem e publique no Status do WhatsApp ou no Instagram.</p>
+                            <button type="button" id="download_marketing_art" class="w-full rounded-lg bg-slate-900 px-5 py-3 font-black text-white hover:bg-slate-800">Baixar imagem PNG</button>
+                            <p class="rounded-md bg-amber-50 p-3 text-amber-800">Instagram automático fica pronto para conectar quando o token oficial da Meta estiver configurado.</p>
+                        </div>
                     </div>
                 </div>
 
-                <div>
-                    <h2 class="text-xl font-bold text-slate-900">Disponibilizar Horários</h2>
-                    <form method="post" class="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm grid gap-4">
+                <div class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm lg:col-span-2">
+                    <h2 class="text-2xl font-black text-slate-950">Posts salvos</h2>
+                    <div class="mt-4 grid gap-3">
+                        <?php if ($marketingPosts === []): ?>
+                            <p class="text-sm text-slate-500">Nenhum post salvo ainda.</p>
+                        <?php endif; ?>
+                        <?php foreach ($marketingPosts as $post): ?>
+                            <div class="grid gap-3 rounded-lg border border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+                                <div>
+                                    <strong><?= e($post['service_name'] ?? 'Serviço removido') ?></strong>
+                                    <small class="block text-slate-500">
+                                        <?= e($post['channel']) ?> · <?= e($post['status']) ?>
+                                        <?php if ($post['scheduled_for']): ?>
+                                            · <?= date('d/m/Y H:i', strtotime($post['scheduled_for'])) ?>
+                                        <?php endif; ?>
+                                    </small>
+                                    <p class="mt-2 text-sm text-slate-600"><?= e($post['caption']) ?></p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <?php if ($post['status'] !== 'publicado'): ?>
+                                        <form method="post">
+                                            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                            <input type="hidden" name="action" value="publish_marketing_post">
+                                            <input type="hidden" name="id" value="<?= (int)$post['id'] ?>">
+                                            <button class="rounded-md bg-pink-600 px-3 py-2 text-sm font-bold text-white">Publicado</button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <form method="post" onsubmit="return confirm('Apagar este post?')">
+                                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                        <input type="hidden" name="action" value="delete_marketing_post">
+                                        <input type="hidden" name="id" value="<?= (int)$post['id'] ?>">
+                                        <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-bold text-red-700">Apagar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
+        <?php elseif ($page === 'login'): ?>
+            <section class="mx-auto max-w-md rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                <h1 class="text-2xl font-black text-slate-950">Login da equipe</h1>
+                <form method="post" class="mt-5 space-y-4">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="login">
+                    <label class="block">
+                        <span class="text-sm font-bold text-slate-700">Login</span>
+                        <input required type="text" name="email" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-100">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-bold text-slate-700">Senha</span>
+                        <input required type="password" name="password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-100">
+                    </label>
+                    <button class="w-full rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Entrar</button>
+                </form>
+            </section>
+        <?php elseif ($page === 'agenda'): ?>
+            <?php
+            $params = [];
+            $where = '';
+            if (!is_admin()) {
+                $where = 'WHERE a.manicure_id = ?';
+                $params[] = current_user()['id'];
+            }
+            $stmt = $pdo->prepare("
+                SELECT a.*, s.name AS service_name, u.name AS manicure_name
+                FROM appointments a
+                JOIN services s ON s.id = a.service_id
+                JOIN users u ON u.id = a.manicure_id
+                {$where}
+                ORDER BY a.appointment_date DESC, a.appointment_time DESC
+                LIMIT 120
+            ");
+            $stmt->execute($params);
+            $appointments = $stmt->fetchAll();
+
+            $availabilitySql = "
+                SELECT ma.*, u.name AS manicure_name,
+                    COUNT(a.id) AS booked_count,
+                    TIME_FORMAT(ma.available_time, '%H:%i') AS formatted_time
+                FROM manicure_availability ma
+                JOIN users u ON u.id = ma.manicure_id
+                LEFT JOIN appointments a
+                    ON a.manicure_id = ma.manicure_id
+                    AND a.appointment_date = ma.available_date
+                    AND a.appointment_time = ma.available_time
+                    AND a.status <> 'cancelado'
+                WHERE ma.available_date >= CURDATE()
+            ";
+            $availabilityParams = [];
+            if (!is_admin()) {
+                $availabilitySql .= ' AND ma.manicure_id = ?';
+                $availabilityParams[] = current_user()['id'];
+            }
+            $availabilitySql .= '
+                GROUP BY ma.id, u.name
+                ORDER BY ma.available_date, ma.available_time
+                LIMIT 120
+            ';
+            $stmt = $pdo->prepare($availabilitySql);
+            $stmt->execute($availabilityParams);
+            $availabilityRows = $stmt->fetchAll();
+            ?>
+            <section>
+                <h1 class="text-3xl font-black text-slate-950">Agenda</h1>
+                <p class="mt-1 text-slate-600"><?= is_admin() ? 'Todos os horários do salão.' : 'Seus horários marcados.' ?></p>
+                <div class="mt-5 rounded-lg border border-rose-100 bg-white p-5 shadow-sm">
+                    <h2 class="text-xl font-black text-slate-950">Disponibilizar horários</h2>
+                    <form method="post" class="mt-4 grid gap-4 lg:grid-cols-4">
                         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                         <input type="hidden" name="action" value="save_availability">
                         <?php if (is_admin()): ?>
-                            <input type="hidden" name="manicure_id" value="<?= $selectedManicureId ?>">
+                            <label class="block">
+                                <span class="text-sm font-bold text-slate-700">Manicure</span>
+                                <select required name="manicure_id" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
+                                    <option value="">Selecione</option>
+                                    <?php foreach ($manicures as $manicure): ?>
+                                        <option value="<?= (int)$manicure['id'] ?>"><?= e($manicure['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
                         <?php endif; ?>
-                        <div class="grid gap-2 sm:grid-cols-2">
-                            <label class="block">
-                                <span class="text-xs font-bold text-slate-700">Data Inicial *</span>
-                                <input type="date" required name="available_start_date" min="<?= date('Y-m-d') ?>" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm">
-                            </label>
-                            <label class="block">
-                                <span class="text-xs font-bold text-slate-700">Data Final (Opcional)</span>
-                                <input type="date" name="available_end_date" min="<?= date('Y-m-d') ?>" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm">
-                            </label>
-                        </div>
-                        <div>
-                            <span class="text-xs font-bold text-slate-700 block mb-1">Selecione os Turnos *</span>
-                            <div class="grid grid-cols-4 gap-1.5 max-h-36 overflow-y-auto p-1 border border-slate-200 rounded bg-slate-50">
-                                <?php foreach (schedule_times() as $t): ?>
-                                    <label class="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded text-xs cursor-pointer select-none hover:bg-pink-50">
-                                        <input type="checkbox" name="available_times[]" value="<?= e($t) ?>">
-                                        <span><?= e($t) ?></span>
+                        <label class="block">
+                            <span class="text-sm font-bold text-slate-700">Data inicial</span>
+                            <input required type="date" min="<?= date('Y-m-d') ?>" name="available_start_date" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-sm font-bold text-slate-700">Data final</span>
+                            <input type="date" min="<?= date('Y-m-d') ?>" name="available_end_date" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
+                            <small class="mt-1 block text-slate-500">Deixe vazio para liberar apenas a data inicial.</small>
+                        </label>
+                        <div class="lg:col-span-4">
+                            <span class="text-sm font-bold text-slate-700">Horários disponíveis</span>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                                <?php foreach (schedule_times() as $time): ?>
+                                    <label class="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-bold">
+                                        <input type="checkbox" name="available_times[]" value="<?= e($time) ?>">
+                                        <?= e($time) ?>
                                     </label>
                                 <?php endforeach; ?>
                             </div>
                         </div>
-                        <button class="w-full rounded bg-pink-600 py-2 text-sm font-bold text-white hover:bg-pink-700">Abrir Horários na Agenda</button>
+                        <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700 lg:col-span-4">Salvar disponibilidade</button>
                     </form>
 
-                    <h2 class="text-lg font-bold text-slate-900 mt-6">Minhas Datas Abertas</h2>
-                    <div class="mt-3 max-h-64 overflow-y-auto space-y-1.5 border border-slate-200 rounded p-2 bg-white">
-                        <?php if ($myAvailability === []): ?>
-                            <p class="text-xs italic text-slate-500">Nenhum horário liberado.</p>
-                        <?php else: ?>
-                            <?php foreach ($myAvailability as $av): ?>
-                                <div class="flex justify-between items-center bg-slate-50 border border-slate-200 px-2 py-1 rounded text-xs">
-                                    <span>🗓️ <?= date('d/m/Y', strtotime($av['available_date'])) ?> às <strong><?= e($av['formatted_time']) ?></strong></span>
-                                    <form method="post" onsubmit="return confirm('Remover esse horário disponível?')">
-                                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                        <input type="hidden" name="action" value="delete_availability">
-                                        <input type="hidden" name="id" value="<?= (int)$av['id'] ?>">
-                                        <button class="text-red-600 hover:text-red-800 font-bold">✕</button>
-                                    </form>
-                                </div>
+                    <div class="mt-5">
+                        <h3 class="text-sm font-black uppercase text-slate-500">Próximos horários liberados</h3>
+                        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            <?php if ($availabilityRows === []): ?>
+                                <p class="text-sm text-slate-500">Nenhum horário disponível cadastrado.</p>
+                            <?php endif; ?>
+                            <?php foreach ($availabilityRows as $slot): ?>
+                                <form method="post" class="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm">
+                                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                    <input type="hidden" name="action" value="delete_availability">
+                                    <input type="hidden" name="id" value="<?= (int)$slot['id'] ?>">
+                                    <span>
+                                        <strong><?= date('d/m/Y', strtotime($slot['available_date'])) ?> às <?= e($slot['formatted_time']) ?></strong>
+                                        <small class="block text-slate-500"><?= e($slot['manicure_name']) ?><?= (int)$slot['booked_count'] > 0 ? ' · agendado' : '' ?></small>
+                                    </span>
+                                    <button class="font-bold text-red-700 hover:underline">Remover</button>
+                                </form>
                             <?php endforeach; ?>
-                        <?php endif; ?>
+                        </div>
                     </div>
                 </div>
-            </div>
+                <div class="mt-5 overflow-x-auto rounded-lg border border-rose-100 bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">Data</th>
+                                <th class="px-4 py-3">Cliente</th>
+                                <th class="px-4 py-3">Serviço</th>
+                                <th class="px-4 py-3">Manicure</th>
+                                <th class="px-4 py-3">Contato</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <?php foreach ($appointments as $appointment): ?>
+                                <tr class="align-top">
+                                    <td class="px-4 py-3 font-bold"><?= date('d/m/Y', strtotime($appointment['appointment_date'])) ?> às <?= substr($appointment['appointment_time'], 0, 5) ?></td>
+                                    <td class="px-4 py-3">
+                                        <?= e($appointment['client_name']) ?>
+                                        <?php if ($appointment['notes']): ?>
+                                            <small class="mt-1 block text-slate-500"><?= e($appointment['notes']) ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-4 py-3"><?= e($appointment['service_name']) ?></td>
+                                    <td class="px-4 py-3"><?= e($appointment['manicure_name']) ?></td>
+                                    <td class="px-4 py-3"><?= e($appointment['client_phone']) ?></td>
+                                    <td class="px-4 py-3">
+                                        <span class="rounded-md bg-pink-50 px-2 py-1 font-bold text-pink-700"><?= e($appointment['status']) ?></span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <form method="post" class="flex gap-2">
+                                            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                            <input type="hidden" name="action" value="update_appointment">
+                                            <input type="hidden" name="id" value="<?= (int)$appointment['id'] ?>">
+                                            <select name="status" class="rounded-md border border-slate-300 px-2 py-1">
+                                                <?php foreach (['marcado', 'confirmado', 'concluido', 'cancelado'] as $status): ?>
+                                                    <option value="<?= e($status) ?>" <?= selected($appointment['status'], $status) ?>><?= e($status) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button class="rounded-md bg-slate-900 px-3 py-1 font-bold text-white">Salvar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php if (!$appointments): ?>
+                                <tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Nenhum agendamento encontrado.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        <?php elseif ($page === 'usuarios'): ?>
+            <?php
+            $users = $pdo->query('SELECT id, name, email, phone, role, created_at FROM users ORDER BY name')->fetchAll();
+            ?>
+            <section class="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
+                <form method="post" class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                    <h1 class="text-2xl font-black text-slate-950">Cadastrar usuário</h1>
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="create_user">
+                    <div class="mt-5 space-y-4">
+                        <input required name="name" placeholder="Nome" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        <input required type="email" name="email" placeholder="E-mail" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        <input name="phone" placeholder="WhatsApp" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        <input required type="password" name="password" placeholder="Senha inicial" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        <select name="role" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                            <option value="manicure">Manicure</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button class="w-full rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Salvar usuário</button>
+                    </div>
+                </form>
+                <div class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                    <h2 class="text-2xl font-black text-slate-950">Usuários</h2>
+                    <div class="mt-4 divide-y divide-slate-100">
+                        <?php foreach ($users as $user): ?>
+                            <div class="flex items-center justify-between gap-4 py-3">
+                                <div>
+                                    <strong><?= e($user['name']) ?></strong>
+                                    <small class="block text-slate-500"><?= e($user['email']) ?> · <?= e($user['role']) ?></small>
+                                    <?php if ($user['phone']): ?>
+                                        <a class="mt-1 block text-sm font-bold text-pink-700 hover:underline" href="<?= e(whatsapp_link($user['phone'])) ?>" target="_blank" rel="noopener"><?= e($user['phone']) ?></a>
+                                    <?php endif; ?>
+                                </div>
+                                <form method="post" onsubmit="return confirm('Apagar este usuário?')">
+                                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                    <input type="hidden" name="action" value="delete_user">
+                                    <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
+                                    <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50">Apagar</button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
         <?php elseif ($page === 'servicos'): ?>
             <?php
-            $allServices = $pdo->query('SELECT * FROM services ORDER BY name')->fetchAll();
-            $editService = null;
-            if (isset($_GET['edit'])) {
-                $stmt = $pdo->prepare('SELECT * FROM services WHERE id = ? LIMIT 1');
-                $stmt->execute([(int)$_GET['edit']]);
-                $editService = $stmt->fetch() ?: null;
-            }
+            $allServices = $pdo->query('SELECT * FROM services ORDER BY active DESC, name')->fetchAll();
             ?>
-            <h1 class="text-3xl font-black text-slate-950">Painel de Serviços</h1>
-            <p class="mt-1 text-slate-600">Cadastre novos procedimentos ou edite preços, descrições e fotos dos existentes.</p>
+            <section>
+                <h1 class="text-3xl font-black text-slate-950">Serviços do catálogo</h1>
+                <form method="post" enctype="multipart/form-data" class="mt-5 grid gap-4 rounded-lg border border-rose-100 bg-white p-6 shadow-sm lg:grid-cols-6">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="save_service">
+                    <label class="block lg:col-span-2">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Nome do serviço</span>
+                        <input name="name" required placeholder="Ex: Alongamento na tips" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Valor</span>
+                        <input name="price" required placeholder="Ex: 115,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
+                        <input name="price_decorated" required placeholder="Ex: 125,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
+                        <input name="duration_minutes" type="number" value="30" min="15" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block lg:col-span-2">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">URL da foto</span>
+                        <input name="image_url" placeholder="Cole um link de imagem, se quiser" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block lg:col-span-3">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Enviar foto do dispositivo</span>
+                        <input name="service_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full rounded-md border border-slate-300 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-bold file:text-pink-700">
+                    </label>
+                    <label class="block lg:col-span-2">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Status</span>
+                        <span class="flex min-h-[42px] items-center gap-2 font-bold"><input type="checkbox" name="active" checked> Ativo</span>
+                    </label>
+                    <label class="block lg:col-span-6">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Descrição</span>
+                        <textarea name="description" placeholder="Ex: Gel." class="w-full rounded-md border border-slate-300 px-3 py-2"></textarea>
+                    </label>
+                    <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700 lg:col-span-6">Cadastrar serviço</button>
+                </form>
 
-            <div class="mt-8 grid gap-8 lg:grid-cols-[1.2fr_.8fr]">
-                <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <h2 class="text-xl font-bold text-slate-900 mb-4">Lista de Procedimentos</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead>
-                                <tr class="border-b border-slate-200 text-xs font-bold uppercase text-slate-500 bg-slate-50">
-                                    <th class="p-3">Foto</th>
-                                    <th class="p-3">Nome / Descrição</th>
-                                    <th class="p-3">Preço Base</th>
-                                    <th class="p-3">Status</th>
-                                    <th class="p-3 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <?php foreach ($allServices as $s): ?>
-                                    <tr>
-                                        <td class="p-3">
-                                            <img class="h-12 w-12 rounded object-cover border border-slate-100" src="<?= e($s['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=150&q=80') ?>">
-                                        </td>
-                                        <td class="p-3">
-                                            <strong class="block text-slate-900"><?= e($s['name']) ?></strong>
-                                            <span class="text-xs text-slate-500 line-clamp-1"><?= e($s['description']) ?></span>
-                                        </td>
-                                        <td class="p-3 font-bold text-pink-700"><?= money_br($s['price']) ?></td>
-                                        <td class="p-3">
-                                            <span class="rounded px-1.5 py-0.5 text-xs font-bold <?= $s['active'] ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600' ?>">
-                                                <?= $s['active'] ? 'Ativo' : 'Inativo' ?>
-                                            </span>
-                                        </td>
-                                        <td class="p-3 text-right space-x-1 whitespace-nowrap">
-                                            <a href="?page=servicos&edit=<?= (int)$s['id'] ?>" class="text-xs font-bold text-pink-600 hover:underline">Editar</a>
-                                            <form method="post" action="" class="inline" onsubmit="return confirm('Apagar permanentemente este procedimento?')">
-                                                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                                <input type="hidden" name="action" value="delete_service">
-                                                <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
-                                                <button class="text-xs font-bold text-red-600 hover:underline">Apagar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm h-fit">
-                    <h2 class="text-xl font-bold text-slate-900 mb-4"><?= $editService ? 'Editar Procedimento' : 'Novo Procedimento' ?></h2>
-                    <form method="post" enctype="multipart/form-data" class="grid gap-4">
-                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                        <input type="hidden" name="action" value="save_service">
-                        <?php if ($editService): ?><input type="hidden" name="id" value="<?= (int)$editService['id'] ?>"><?php endif; ?>
-                        
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Nome do Serviço *</span>
-                            <input required name="name" value="<?= e($editService['name'] ?? '') ?>" placeholder="Ex: Alongamento em Gel" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Descrição Comercial</span>
-                            <textarea name="description" rows="2" placeholder="Descreva os benefícios..." class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"><?= e($editService['description'] ?? '') ?></textarea>
-                        </label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="block">
-                                <span class="text-sm font-bold text-slate-700">Preço (R$) *</span>
-                                <input required name="price" value="<?= e(isset($editService['price']) ? number_format((float)$editService['price'], 2, ',', '') : '') ?>" placeholder="115,00" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                            </label>
-                            <label class="block">
-                                <span class="text-sm font-bold text-slate-700">Duração (min)</span>
-                                <input type="number" name="duration_minutes" value="<?= (int)($editService['duration_minutes'] ?? 60) ?>" min="15" step="15" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                            </label>
-                        </div>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Foto do Trabalho</span>
-                            <input type="file" name="service_image" accept="image/*" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 file:cursor-pointer hover:file:bg-pink-100">
-                            <input type="hidden" name="image_url" value="<?= e($editService['image_url'] ?? '') ?>">
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer select-none py-1">
-                            <input type="checkbox" name="active" value="1" <?= !isset($editService['active']) || $editService['active'] ? 'checked' : '' ?> class="rounded text-pink-600 focus:ring-pink-500 h-4 w-4">
-                            <span class="text-sm font-bold text-slate-700">Exibir este serviço no catálogo inicial</span>
-                        </label>
-                        
-                        <div class="flex gap-2 mt-2">
-                            <button class="flex-1 rounded-lg bg-pink-600 py-2.5 font-bold text-white hover:bg-pink-700">Salvar Dados</button>
-                            <?php if ($editService): ?>
-                                <a href="?page=servicos" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-bold text-slate-700 hover:bg-slate-50">Cancelar</a>
-                            <?php endif; ?>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        <?php elseif ($page === 'usuarios'): ?>
-            <?php $allUsers = $pdo->query('SELECT id, name, email, phone, role FROM users ORDER BY role, name')->fetchAll(); ?>
-            <h1 class="text-3xl font-black text-slate-950">Equipe & Usuários</h1>
-            <p class="mt-1 text-slate-600">Cadastre profissionais manicures ou administradores com acesso restrito ao sistema.</p>
-
-            <div class="mt-8 grid gap-8 lg:grid-cols-[1.2fr_.8fr]">
-                <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <h2 class="text-xl font-bold text-slate-900 mb-4">Membros da Equipe</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead>
-                                <tr class="border-b border-slate-200 text-xs font-bold uppercase text-slate-500 bg-slate-50">
-                                    <th class="p-3">Nome</th>
-                                    <th class="p-3">E-mail</th>
-                                    <th class="p-3">Função</th>
-                                    <th class="p-3 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <?php foreach ($allUsers as $u): ?>
-                                    <tr>
-                                        <td class="p-3 font-bold text-slate-900"><?= e($u['name']) ?></td>
-                                        <td class="p-3 text-slate-600"><?= e($u['email']) ?></td>
-                                        <td class="p-3">
-                                            <span class="rounded px-1.5 py-0.5 text-xs font-bold <?= $u['role'] === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-pink-100 text-pink-800' ?>">
-                                                <?= e($u['role']) ?>
-                                            </span>
-                                        </td>
-                                        <td class="p-3 text-right">
-                                            <form method="post" onsubmit="return confirm('Remover acessos desse membro?')" class="inline">
-                                                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                                <input type="hidden" name="action" value="delete_user">
-                                                <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-                                                <button class="text-xs font-bold text-red-600 hover:underline">Remover</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm h-fit">
-                    <h2 class="text-xl font-bold text-slate-900 mb-4">Novo Membro</h2>
-                    <form method="post" class="grid gap-4">
-                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                        <input type="hidden" name="action" value="create_user">
-                        
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Nome Completo *</span>
-                            <input required name="name" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">E-mail de Acesso *</span>
-                            <input type="email" required name="email" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Telefone</span>
-                            <input name="phone" placeholder="(61) 99999-9999" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Senha Provisória *</span>
-                            <input type="password" required name="password" minlength="6" placeholder="Mínimo 6 caracteres" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">Nível de Acesso *</span>
-                            <select name="role" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                                <option value="manicure">Manicure (Vê apenas sua própria agenda)</option>
-                                <option value="admin">Administrador (Gerencia tudo no sistema)</option>
-                            </select>
-                        </label>
-                        <button class="mt-2 rounded-lg bg-pink-600 py-2.5 font-bold text-white hover:bg-pink-700">Cadastrar Profissional</button>
-                    </form>
-                </div>
-            </div>
-        <?php elseif ($page === 'marketing'): ?>
-            <?php
-            $posts = $pdo->query('
-                SELECT p.*, s.name AS service_name
-                FROM marketing_posts p
-                JOIN services s ON s.id = p.service_id
-                ORDER BY p.created_at DESC
-            ')->fetchAll();
-            ?>
-            <h1 class="text-3xl font-black text-slate-950">Marketing Integrado</h1>
-            <p class="mt-1 text-slate-600">Gere artes promocionais automaticamente ou agende ideias de legendas para suas redes.</p>
-
-            <div class="mt-8 grid gap-8 lg:grid-cols-[1fr_1.1fr]">
-                <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm h-fit">
-                    <h2 class="text-xl font-bold text-slate-900 mb-2">Gerador de Post Automático</h2>
-                    <p class="text-xs text-slate-500 mb-4">Selecione o procedimento para montar um card pronto para download com sua marca.</p>
-                    
-                    <div class="grid gap-4">
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">1. Escolha o Procedimento de Fundo</span>
-                            <select id="mkt_service_id" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                                <?php foreach ($services as $srv): ?>
-                                    <option value="<?= (int)$srv['id'] ?>" data-name="<?= e($srv['name']) ?>" data-price="<?= money_br($srv['price']) ?>" data-img="<?= e($srv['image_url']) ?>">
-                                        <?= e($srv['name']) ?> (<?= money_br($srv['price']) ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-bold text-slate-700">2. Frase de Destaque no Post</span>
-                            <input id="mkt_caption" value="Agende seu horário dessa semana!" placeholder="Frase curta..." class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                        </label>
-                        
-                        <div>
-                            <span class="text-sm font-bold text-slate-700 block mb-1">Pré-visualização da Arte</span>
-                            <div class="flex justify-center border border-slate-200 rounded-lg p-2 bg-slate-100 shadow-inner">
-                                <canvas id="marketing_canvas" width="600" height="600" class="max-w-full rounded shadow-md border border-white h-[320px] w-[320px]"></canvas>
-                            </div>
-                        </div>
-                        <button id="download_mkt_art" class="rounded-lg bg-pink-600 py-2.5 font-bold text-white hover:bg-pink-700 shadow-sm transition">📥 Baixar Imagem (.PNG)</button>
-                    </div>
-                </div>
-
-                <div class="space-y-6">
-                    <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                        <h2 class="text-xl font-bold text-slate-900 mb-4">Planejar / Salvar Legenda</h2>
-                        <form method="post" class="grid gap-4">
+                <div class="mt-6 grid gap-4">
+                    <?php foreach ($allServices as $service): ?>
+                        <form method="post" enctype="multipart/form-data" class="grid gap-3 rounded-lg border border-rose-100 bg-white p-4 shadow-sm lg:grid-cols-6">
                             <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                            <input type="hidden" name="action" value="save_marketing_post">
-                            
-                            <label class="block">
-                                <span class="text-sm font-bold text-slate-700">Procedimento Alvo</span>
-                                <select required name="service_id" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                                    <?php foreach ($services as $srv): ?>
-                                        <option value="<?= (int)$srv['id'] ?>"><?= e($srv['name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                            <input type="hidden" name="id" value="<?= (int)$service['id'] ?>">
+                            <input type="hidden" name="action" value="save_service">
+                            <label class="block lg:col-span-2">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Nome do serviço</span>
+                                <input name="name" value="<?= e($service['name']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
-                            <div class="grid grid-cols-2 gap-3">
-                                <label class="block">
-                                    <span class="text-sm font-bold text-slate-700">Canal</span>
-                                    <select name="channel" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                                        <option value="both">Instagram & WhatsApp</option>
-                                        <option value="instagram">Apenas Feed/Stories</option>
-                                        <option value="whatsapp_status">Status do WhatsApp</option>
-                                    </select>
-                                </label>
-                                <label class="block">
-                                    <span class="text-sm font-bold text-slate-700">Data de Publicação</span>
-                                    <input type="datetime-local" name="scheduled_for" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                                </label>
-                            </div>
                             <label class="block">
-                                <span class="text-sm font-bold text-slate-700">Texto da Legenda / HashTags</span>
-                                <textarea required name="caption" rows="3" placeholder="Escreva o texto..." class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"></textarea>
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Valor</span>
+                                <input name="price" value="<?= e((string)$service['price']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
-                            <button class="rounded-lg bg-slate-900 py-2 font-bold text-white hover:bg-slate-800 text-sm">Salvar no Cronograma</button>
+                            <label class="block">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
+                                <input name="price_decorated" value="<?= e((string)($service['price_decorated'] ?? 0)) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                            </label>
+                            <label class="block">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
+                                <input name="duration_minutes" type="number" min="15" value="<?= (int)$service['duration_minutes'] ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                            </label>
+                            <label class="block lg:col-span-2">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">URL da foto</span>
+                                <input name="image_url" value="<?= e($service['image_url']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                            </label>
+                            <label class="block lg:col-span-3">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Trocar foto pelo dispositivo</span>
+                                <input name="service_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full rounded-md border border-slate-300 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-bold file:text-pink-700">
+                            </label>
+                            <label class="block lg:col-span-2">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Status</span>
+                                <span class="flex min-h-[42px] items-center gap-2 font-bold"><input type="checkbox" name="active" <?= (int)$service['active'] === 1 ? 'checked' : '' ?>> Ativo</span>
+                            </label>
+                            <label class="block lg:col-span-6">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Descrição</span>
+                                <textarea name="description" class="w-full rounded-md border border-slate-300 px-3 py-2"><?= e($service['description']) ?></textarea>
+                            </label>
+                            <button class="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white lg:col-span-3">Salvar</button>
+                            <button formaction="" name="action" value="delete_service" onclick="return confirm('Apagar este serviço?')" class="rounded-lg border border-red-200 px-4 py-2 font-bold text-red-700 hover:bg-red-50 lg:col-span-3">Apagar</button>
                         </form>
-                    </div>
-
-                    <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                        <h2 class="text-lg font-bold text-slate-900 mb-3">Cronograma de Posts</h2>
-                        <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
-                            <?php if ($posts === []): ?>
-                                <p class="text-xs italic text-slate-500">Nenhuma legenda salva ou planejada.</p>
-                            <?php else: ?>
-                                <?php foreach ($posts as $p): ?>
-                                    <div class="rounded border border-slate-100 bg-slate-50 p-3 text-xs shadow-sm">
-                                        <div class="flex justify-between items-center mb-1">
-                                            <span class="font-bold text-slate-900 uppercase">📢 <?= e($p['service_name']) ?></span>
-                                            <span class="rounded px-1 py-0.5 text-[10px] font-black uppercase <?= $p['status'] === 'publicado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' ?>">
-                                                <?= e($p['status']) ?>
-                                            </span>
-                                        </div>
-                                        <p class="text-slate-700 whitespace-pre-wrap italic">"<?= e($p['caption']) ?>"</p>
-                                        <?php if ($p['scheduled_for']): ?>
-                                            <p class="mt-1.5 text-[10px] font-bold text-slate-500">📅 Agendado para: <?= date('d/m/Y H:i', strtotime($p['scheduled_for'])) ?></p>
-                                        <?php endif; ?>
-                                        <div class="mt-2 flex justify-end gap-2 border-t border-slate-200/60 pt-2">
-                                            <?php if ($p['status'] !== 'publicado'): ?>
-                                                <form method="post" class="inline">
-                                                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                                    <input type="hidden" name="action" value="publish_marketing_post">
-                                                    <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
-                                                    <button class="text-emerald-700 hover:underline font-bold">Marcar Publicado</button>
-                                                </form>
-                                            <?php endif; ?>
-                                            <form method="post" class="inline" onsubmit="return confirm('Remover esse post?')">
-                                                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                                <input type="hidden" name="action" value="delete_marketing_post">
-                                                <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
-                                                <button class="text-red-600 hover:underline">Apagar</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
-            </div>
-
-            <script>
-                const canvas = document.getElementById('marketing_canvas');
-                const serviceSelect = document.getElementById('mkt_service_id');
-                const captionInput = document.getElementById('mkt_caption');
-                const downloadButton = document.getElementById('download_mkt_art');
-
-                if (canvas && serviceSelect && captionInput && downloadButton) {
-                    const ctx = canvas.getContext('2d');
-
-                    function drawText(service, text) {
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                        ctx.fillRect(40, 40, canvas.width - 80, canvas.height - 80);
-                        ctx.strokeStyle = '#f8d8d9';
-                        ctx.lineWidth = 4;
-                        ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-                        ctx.fillStyle = '#8f3f39';
-                        ctx.font = 'bold 36px Georgia, serif';
-                        ctx.fillText('Samara Eduarda', canvas.width / 2, 110);
-
-                        ctx.fillStyle = '#de2a7a';
-                        ctx.font = 'italic 20px Georgia, serif';
-                        ctx.fillText('Nail Designer', canvas.width / 2, 150);
-
-                        ctx.fillStyle = '#1c1917';
-                        ctx.font = '900 42px Inter, sans-serif';
-                        
-                        let serviceName = service.name.toUpperCase();
-                        if (serviceName.length > 20) {
-                            ctx.font = '900 32px Inter, sans-serif';
-                        }
-                        ctx.fillText(serviceName, canvas.width / 2, 260);
-
-                        ctx.fillStyle = '#de2a7a';
-                        ctx.font = '900 56px Inter, sans-serif';
-                        ctx.fillText(service.price, canvas.width / 2, 340);
-
-                        ctx.fillStyle = '#44403c';
-                        ctx.font = '500 22px Inter, sans-serif';
-                        
-                        const words = text.split(' ');
-                        let lines = [];
-                        let currentLine = '';
-                        
-                        for (let n = 0; n < words.length; n++) {
-                            let testLine = currentLine + words[n] + ' ';
-                            let metrics = ctx.measureText(testLine);
-                            if (metrics.width > canvas.width - 160 && n > 0) {
-                                lines.push(currentLine);
-                                currentLine = words[n] + ' ';
-                            } else {
-                                currentLine = testLine;
-                            }
-                        }
-                        lines.push(currentLine);
-
-                        let startY = 440;
-                        for (let i = 0; i < lines.length; i++) {
-                            ctx.fillText(lines[i].trim(), canvas.width / 2, startY + (i * 30));
-                        }
-                    }
-
-                    function drawFallback(service) {
-                        ctx.fillStyle = '#fff1f7';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        drawText(service, captionInput.value);
-                    }
-
-                    function renderMarketingArt() {
-                        const option = serviceSelect.options[serviceSelect.selectedIndex];
-                        if (!option) return;
-
-                        const service = {
-                            name: option.getAttribute('data-name'),
-                            price: option.getAttribute('data-price'),
-                            image_url: option.getAttribute('data-img')
-                        };
-
-                        if (!service.image_url) {
-                            drawFallback(service);
-                            return;
-                        }
-
-                        const image = new Image();
-                        image.crossOrigin = 'anonymous';
-                        image.onload = () => {
-                            ctx.fillStyle = '#fff1f7';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            const scale = Math.max(canvas.width / image.width, canvas.height / image.height);
-                            const width = image.width * scale;
-                            const height = image.height * scale;
-                            ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-                            ctx.fillStyle = 'rgba(15,23,42,.22)';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            drawText(service, captionInput.value);
-                        };
-                        image.onerror = () => drawFallback(service);
-                        image.src = service.image_url;
-                    }
-
-                    serviceSelect.addEventListener('change', renderMarketingArt);
-                    captionInput.addEventListener('input', renderMarketingArt);
-                    downloadButton.addEventListener('click', () => {
-                        try {
-                            const link = document.createElement('a');
-                            link.download = 'post-samara-eduarda.png';
-                            link.href = canvas.toDataURL('image/png');
-                            link.click();
-                        } catch (error) {
-                            alert('Não foi possível baixar essa imagem. Tente usar uma foto enviada pelo dispositivo no serviço.');
-                        }
-                    });
-                    renderMarketingArt();
-                }
-            </script>
+            </section>
+        <?php else: ?>
+            <section class="rounded-lg border border-rose-100 bg-white p-8 text-center shadow-sm">
+                <h1 class="text-2xl font-black">Página não encontrada</h1>
+                <a class="mt-4 inline-block rounded-lg bg-pink-600 px-5 py-3 font-bold text-white" href="?page=inicio">Voltar</a>
+            </section>
         <?php endif; ?>
     </main>
+    <?php if ($page === 'agendar'): ?>
+        <script>
+            const availability = <?= json_encode($availabilityByManicure, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+            const manicureSelect = document.getElementById('manicure_id');
+            const dateSelect = document.getElementById('appointment_date');
+            const timeSelect = document.getElementById('appointment_time');
+
+            function resetSelect(select, label) {
+                select.innerHTML = '';
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = label;
+                select.appendChild(option);
+            }
+
+            function formatDate(date) {
+                const [year, month, day] = date.split('-');
+                return `${day}/${month}/${year}`;
+            }
+
+            function updateDates() {
+                const manicureId = manicureSelect.value;
+                resetSelect(dateSelect, 'Selecione');
+                resetSelect(timeSelect, 'Escolha uma data primeiro');
+
+                if (!manicureId || !availability[manicureId]) {
+                    resetSelect(dateSelect, 'Nenhuma data disponível');
+                    return;
+                }
+
+                Object.keys(availability[manicureId]).forEach((date) => {
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = formatDate(date);
+                    dateSelect.appendChild(option);
+                });
+            }
+
+            function updateTimes() {
+                const manicureId = manicureSelect.value;
+                const date = dateSelect.value;
+                resetSelect(timeSelect, 'Selecione');
+
+                if (!manicureId || !date || !availability[manicureId]?.[date]) {
+                    resetSelect(timeSelect, 'Nenhum horário disponível');
+                    return;
+                }
+
+                availability[manicureId][date].forEach((time) => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    timeSelect.appendChild(option);
+                });
+            }
+
+            manicureSelect.addEventListener('change', updateDates);
+            dateSelect.addEventListener('change', updateTimes);
+            updateDates();
+        </script>
+    <?php endif; ?>
+    <?php if ($page === 'marketing'): ?>
+        <script>
+            const marketingServices = <?= json_encode($marketingServices, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+            const serviceSelect = document.getElementById('marketing_service');
+            const captionInput = document.getElementById('marketing_caption');
+            const canvas = document.getElementById('marketing_canvas');
+            const ctx = canvas.getContext('2d');
+            const downloadButton = document.getElementById('download_marketing_art');
+
+            function money(value) {
+                return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            function wrapText(text, x, y, maxWidth, lineHeight) {
+                const words = String(text || '').split(/\s+/);
+                let line = '';
+                words.forEach((word) => {
+                    const testLine = line ? `${line} ${word}` : word;
+                    if (ctx.measureText(testLine).width > maxWidth && line) {
+                        ctx.fillText(line, x, y);
+                        line = word;
+                        y += lineHeight;
+                    } else {
+                        line = testLine;
+                    }
+                });
+                if (line) {
+                    ctx.fillText(line, x, y);
+                }
+                return y;
+            }
+
+            function drawFallback(service) {
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#fff1f7');
+                gradient.addColorStop(1, '#ffffff');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                drawText(service);
+            }
+
+            function drawText(service) {
+                ctx.fillStyle = 'rgba(255,255,255,.92)';
+                ctx.fillRect(80, 1160, 920, 560);
+                ctx.fillStyle = '#be185d';
+                ctx.font = 'bold 42px Arial';
+                ctx.fillText('Samara Eduarda Nail Designer', 110, 1240);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 76px Arial';
+                wrapText(service?.name || 'Serviço do catálogo', 110, 1360, 860, 86);
+                ctx.fillStyle = '#be185d';
+                ctx.font = 'bold 64px Arial';
+                ctx.fillText(money(service?.price), 110, 1550);
+                ctx.fillStyle = '#334155';
+                ctx.font = '40px Arial';
+                wrapText(captionInput.value || 'Agenda aberta. Garanta seu horário pelo WhatsApp.', 110, 1640, 860, 52);
+            }
+
+            function renderMarketingArt() {
+                const service = marketingServices.find((item) => String(item.id) === serviceSelect.value) || marketingServices[0];
+                if (!service?.image_url) {
+                    drawFallback(service);
+                    return;
+                }
+
+                const image = new Image();
+                image.crossOrigin = 'anonymous';
+                image.onload = () => {
+                    ctx.fillStyle = '#fff1f7';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    const scale = Math.max(canvas.width / image.width, canvas.height / image.height);
+                    const width = image.width * scale;
+                    const height = image.height * scale;
+                    ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+                    ctx.fillStyle = 'rgba(15,23,42,.22)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    drawText(service);
+                };
+                image.onerror = () => drawFallback(service);
+                image.src = service.image_url;
+            }
+
+            serviceSelect.addEventListener('change', renderMarketingArt);
+            captionInput.addEventListener('input', renderMarketingArt);
+            downloadButton.addEventListener('click', () => {
+                try {
+                    const link = document.createElement('a');
+                    link.download = 'post-samara-eduarda.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                } catch (error) {
+                    alert('Não foi possível baixar essa imagem. Tente usar uma foto enviada pelo dispositivo no serviço.');
+                }
+            });
+            renderMarketingArt();
+        </script>
+    <?php endif; ?>
 </body>
 </html>
