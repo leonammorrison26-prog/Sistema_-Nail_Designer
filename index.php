@@ -537,8 +537,14 @@ function nav_link(string $target, string $label, string $current): string
                         </div>
                     </div>
 
-                    <div class="hidden lg:flex items-center justify-center">
+                    <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
+                        <img class="h-[370px] w-full rounded-xl object-cover object-center" src="assets/01.jpeg" alt="Samara Eduarda Nail Designer">
+                        <div class="px-6 py-7 text-center text-[#743632]">
+                            <p class="text-xs font-bold uppercase tracking-wide text-[#bd665d]">Sobre mim</p>
+                            <p class="brand-serif mt-4 text-lg leading-relaxed">Olá! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.</p>
+                            <p class="brand-script mt-6 text-3xl text-[#a65a54]">Samara Eduarda</p>
                         </div>
+                    </aside>
 
                 </div>
             </section>
