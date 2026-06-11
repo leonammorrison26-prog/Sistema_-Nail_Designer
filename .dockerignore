@@ -1,0 +1,11 @@
+.tools/
+.vscode/
+.git/
+
+data/
+*.log
+*.zip
+
+start-*-local.ps1
+stop-local.ps1
+requirements.txt

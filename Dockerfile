@@ -5,12 +5,13 @@ RUN docker-php-ext-install pdo pdo_mysql
 
 # Garante que apenas o MPM compativel com mod_php fique ativo no Apache.
 RUN set -eux; \
-    a2dismod -f mpm_event mpm_worker || true; \
-    rm -f /etc/apache2/mods-enabled/mpm_event.load \
-          /etc/apache2/mods-enabled/mpm_event.conf \
-          /etc/apache2/mods-enabled/mpm_worker.load \
-          /etc/apache2/mods-enabled/mpm_worker.conf; \
-    a2enmod mpm_prefork; \
+    find /etc/apache2/mods-enabled -maxdepth 1 -type l -name 'mpm_*' -delete; \
+    ln -sf ../mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; \
+    if [ -f /etc/apache2/mods-available/mpm_prefork.conf ]; then \
+        ln -sf ../mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; \
+    fi; \
+    apache2ctl -M | grep 'mpm_'; \
+    test "$(apache2ctl -M 2>/dev/null | grep -c 'mpm_')" = "1"; \
     apache2ctl -t
 
 # Configura o arquivo padrao de inicializacao.
@@ -20,3 +21,5 @@ RUN printf "DirectoryIndex index.php index.html\n" > /etc/apache2/conf-enabled/d
 COPY . /var/www/html/
 
 EXPOSE 80
+
+CMD ["bash", "-lc", "set -e; find /etc/apache2/mods-enabled -maxdepth 1 -type l -name 'mpm_*' -delete; ln -sf ../mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; if [ -f /etc/apache2/mods-available/mpm_prefork.conf ]; then ln -sf ../mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; fi; apache2ctl -t; exec apache2-foreground"]
