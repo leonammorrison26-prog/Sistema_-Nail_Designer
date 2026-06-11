@@ -20,6 +20,11 @@ RUN printf "DirectoryIndex index.php index.html\n" > /etc/apache2/conf-enabled/d
 # Copia os arquivos do projeto para a pasta do servidor.
 COPY . /var/www/html/
 
+# CRIA A PASTA DE UPLOADS E DA AS PERMISSÕES AO USUÁRIO DO APACHE (www-data)
+RUN mkdir -p /var/www/html/assets/uploads && \
+    chown -R www-data:www-data /var/www/html/assets && \
+    chmod -R 775 /var/www/html/assets
+
 EXPOSE 80
 
-CMD ["bash", "-lc", "set -e; find /etc/apache2/mods-enabled -maxdepth 1 -type l -name 'mpm_*' -delete; ln -sf ../mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; if [ -f /etc/apache2/mods-available/mpm_prefork.conf ]; then ln -sf ../mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; fi; apache2ctl -t; exec apache2-foreground"]
+CMD ["bash", "-lc", "set -e; apache2fn() { apache2ctl -D FOREGROUND; }; apache2fn"]
