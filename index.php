@@ -532,20 +532,6 @@ function nav_link(string $target, string $label, string $current): string
                             <a href="#catalogo" class="rounded-lg border border-pink-300 bg-white/70 px-9 py-4 text-lg font-black text-pink-600 shadow-sm transition hover:bg-white">Ver Trabalhos</a>
                         </div>
 
-                        <div class="mt-7 grid max-w-4xl gap-4 rounded-xl border border-rose-100 bg-white/70 p-5 shadow-sm backdrop-blur sm:grid-cols-3">
-                            <div class="border-rose-100 sm:border-r">
-                                <strong class="brand-serif block text-2xl text-stone-950">★★★★★ 5.0</strong>
-                                <span class="text-sm text-[#7b3935]">Nossas clientes recomendam</span>
-                            </div>
-                            <div class="border-rose-100 sm:border-r sm:px-8">
-                                <strong class="brand-serif block text-2xl text-stone-950">+300</strong>
-                                <span class="text-sm text-[#7b3935]">atendimentos realizados</span>
-                            </div>
-                            <div class="sm:px-8">
-                                <strong class="brand-serif block text-2xl text-stone-950">+200</strong>
-                                <span class="text-sm text-[#7b3935]">clientes satisfeitas</span>
-                            </div>
-                        </div>
                     </div>
 
                     <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
@@ -579,6 +565,26 @@ function nav_link(string $target, string $label, string $current): string
                             </div>
                         </article>
                     <?php endforeach; ?>
+                </div>
+            </section>
+
+            <section class="mx-auto max-w-[1440px] px-6 pb-8 lg:px-24">
+                <div class="grid overflow-hidden rounded-md border border-rose-100 bg-white/85 shadow-[0_8px_18px_rgba(122,57,53,.10)] backdrop-blur sm:grid-cols-3">
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
+                        <strong class="brand-serif flex flex-wrap items-baseline gap-1.5 text-lg font-bold leading-none text-stone-950 lg:text-xl">
+                            <span class="tracking-[1px]" aria-label="5 estrelas">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+                            <span>5.0</span>
+                        </strong>
+                        <span class="mt-1 text-sm leading-tight text-[#7b3935]">Nossas clientes recomendam</span>
+                    </div>
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
+                        <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+300</strong>
+                        <span class="mt-1 text-sm leading-tight text-[#7b3935]">atendimentos realizados</span>
+                    </div>
+                    <div class="flex min-h-12 flex-col justify-center px-4 py-2 lg:px-5">
+                        <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+200</strong>
+                        <span class="mt-1 text-sm leading-tight text-[#7b3935]">clientes satisfeitas</span>
+                    </div>
                 </div>
             </section>
         <?php elseif ($page === 'agendar'): ?>
