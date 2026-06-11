@@ -509,41 +509,41 @@ function nav_link(string $target, string $label, string $current): string
 
         <?php if ($page === 'inicio'): ?>
             <section class="home-hero border-b border-rose-100">
-                <div class="mx-auto grid min-h-[660px] max-w-[1440px] gap-10 px-6 py-10 lg:grid-cols-[1fr_330px] lg:px-24 lg:py-16">
-                    <div class="flex max-w-4xl flex-col justify-center">
-                        <p class="brand-serif text-[clamp(42px,8vw,112px)] font-bold uppercase leading-[.78] text-[#bd665d]">
-                            Samara<br>Eduarda
-                        </p>
-                        <p class="brand-script mt-5 text-[clamp(36px,5vw,70px)] leading-none text-[#b76862]">Nail Designer</p>
-
-                        <div class="mt-8 grid max-w-2xl gap-4 text-xl leading-relaxed text-[#7b3935]">
-                            <p class="flex gap-4">
-                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">+</span>
-                                <span>Realce sua beleza com unhas impecáveis e atendimento personalizado.</span>
-                            </p>
-                            <p class="flex gap-4">
-                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">~</span>
-                                <span>Especialista em unhas que valorizam sua autoestima.</span>
-                            </p>
+                <div class="mx-auto grid min-h-[550px] md:min-h-[660px] max-w-[1440px] gap-6 md:gap-10 px-4 md:px-24 py-8 md:py-16 lg:grid-cols-[1fr_330px]">
+                    
+                    <div class="flex flex-col justify-center space-y-6 md:space-y-8">
+                        <div>
+                            <h1 class="brand-script text-5xl md:text-7xl lg:text-8xl text-pink-700">Nail Designer</h1>
                         </div>
 
-                        <div class="mt-7 flex flex-wrap gap-4">
-                            <a href="?page=agendar" class="flex-1 text-center md:flex-none rounded-lg bg-pink-600 px-6 md:px-9 py-4 text-lg font-black text-white shadow-sm transition hover:bg-pink-700">Agendar Agora</a>
-                            <a href="#catalogo" class="flex-1 text-center md:flex-none rounded-lg border border-pink-300 bg-white/70 px-6 md:px-9 py-4 text-lg font-black text-pink-600 shadow-sm transition hover:bg-white">Ver Trabalhos</a>
+                        <div class="space-y-4 max-w-xl">
+                            <div class="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-3 rounded-2xl md:bg-transparent md:p-0">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700 font-bold text-lg">+</span>
+                                <p class="text-sm md:text-lg text-stone-700 leading-tight">Realce sua beleza com unhas impecáveis e atendimento personalizado.</p>
+                            </div>
+                            <div class="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-3 rounded-2xl md:bg-transparent md:p-0">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700 font-bold text-lg">~</span>
+                                <p class="text-sm md:text-lg text-stone-700 leading-tight">Especialista em unhas que valorizam sua autoestima.</p>
+                            </div>
                         </div>
 
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                            <a href="?page=agendar" class="rounded-xl bg-pink-600 px-6 py-3.5 text-center text-sm font-bold text-white shadow-md transition hover:bg-pink-700 active:scale-95">
+                                Agendar Agora
+                            </a>
+                            <a href="#servicos-ancora" class="rounded-xl border border-pink-200 bg-white px-6 py-3.5 text-center text-sm font-bold text-pink-700 shadow-sm transition hover:bg-rose-50 active:scale-95">
+                                Ver Trabalhos
+                            </a>
+                        </div>
                     </div>
 
-                    <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
-                        <img class="h-[370px] w-full rounded-xl object-cover object-center" src="assets/01.jpeg" alt="Samara Eduarda Nail Designer">
-                        <div class="px-6 py-7 text-center text-[#743632]">
-                            <p class="text-xs font-bold uppercase tracking-wide text-[#bd665d]">Sobre mim</p>
-                            <p class="brand-serif mt-4 text-lg leading-relaxed">Olá! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.</p>
-                            <p class="brand-script mt-6 text-3xl text-[#a65a54]">Samara Eduarda</p>
+                    <div class="hidden lg:flex items-center justify-center">
                         </div>
-                    </aside>
+
                 </div>
             </section>
+            
+            <div id="servicos-ancora"></div>
 
             <section id="catalogo" class="mx-auto max-w-[1440px] px-6 py-10 lg:px-24">
                 <div class="mb-4 flex items-end gap-4">
