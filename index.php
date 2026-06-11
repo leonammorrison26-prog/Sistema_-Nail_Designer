@@ -576,18 +576,18 @@ function nav_link(string $target, string $label, string $current): string
 
             <section class="mx-auto max-w-[1440px] px-6 pb-8 lg:px-24">
                 <div class="grid overflow-hidden rounded-md border border-rose-100 bg-white/85 shadow-[0_8px_18px_rgba(122,57,53,.10)] backdrop-blur sm:grid-cols-3">
-                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 text-center sm:border-b-0 sm:border-r lg:px-5">
                         <strong class="brand-serif flex flex-wrap items-baseline gap-1.5 text-lg font-bold leading-none text-stone-950 lg:text-xl">
                             <span class="tracking-[1px]" aria-label="5 estrelas">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                             <span>5.0</span>
                         </strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">Nossas clientes recomendam</span>
                     </div>
-                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 text-center sm:border-b-0 sm:border-r lg:px-5">
                         <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+300</strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">atendimentos realizados</span>
                     </div>
-                    <div class="flex min-h-12 flex-col justify-center px-4 py-2 lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center px-4 py-2 text-center lg:px-5">
                         <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+200</strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">clientes satisfeitas</span>
                     </div>
