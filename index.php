@@ -48,9 +48,11 @@ function uploaded_service_image(): ?string
         redirect_with('servicos', 'Envie uma foto nos formatos JPG, PNG, WEBP ou GIF.', 'error');
     }
 
-    $uploadDir = __DIR__ . '/assets/uploads';
-    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true)) {
-        redirect_with('servicos', 'NÃ£o foi possÃ­vel criar a pasta de uploads.', 'error');
+    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads';
+    if (!is_dir($uploadDir)) {
+        if (!@mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+            redirect_with('servicos', 'Erro: A pasta de fotos não tem permissão de escrita.', 'error');
+        }
     }
 
     $filename = 'servico-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $allowedTypes[$mimeType];
@@ -1060,6 +1062,10 @@ function nav_link(string $target, string $label, string $current): string
                         <input name="price_decorated" required placeholder="Ex: 125,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
                     </label>
                     <label class="block">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
+                        <input name="price_decorated" required placeholder="Ex: 125,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block">
                         <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
                         <input name="duration_minutes" type="number" value="30" min="15" class="w-full rounded-md border border-slate-300 px-3 py-2">
                     </label>
@@ -1098,7 +1104,7 @@ function nav_link(string $target, string $label, string $current): string
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
-                                <input name="price_decorated" value="<?= e((string)($service['price_decorated'] ?? 0)) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                <input name="price_decorated" value="<?= e(number_format((float)($service['price_decorated'] ?? 0), 2, ',', '.')) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
@@ -1246,7 +1252,9 @@ function nav_link(string $target, string $label, string $current): string
                 wrapText(service?.name || 'Serviço do catálogo', 110, 1360, 860, 86);
                 ctx.fillStyle = '#be185d';
                 ctx.font = 'bold 64px Arial';
-                ctx.fillText(money(service?.price), 110, 1550);
+                const priceNormal = money(service?.price);
+                const priceDeco = money(service?.price_decorated);
+                ctx.fillText(`Sem: ${priceNormal} / Com: ${priceDeco}`, 110, 1550);
                 ctx.fillStyle = '#334155';
                 ctx.font = '40px Arial';
                 wrapText(captionInput.value || 'Agenda aberta. Garanta seu horário pelo WhatsApp.', 110, 1640, 860, 52);
