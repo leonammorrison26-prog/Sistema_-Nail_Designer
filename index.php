@@ -194,8 +194,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $xml->social->{$field} = trim($_POST[$field] ?? '');
         }
 
+        if (!isset($xml->salon)) {
+            $xml->addChild('salon');
+        }
+        $xml->salon->show_duration = isset($_POST['show_duration']) ? '1' : '0';
+
         $xml->asXML($configPath);
-        redirect_with('redes', 'Redes sociais atualizadas.');
+        redirect_with('redes', 'Configurações atualizadas.');
     }
 
     if ($action === 'save_marketing_post') {
@@ -259,12 +264,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $normalizedPrice = str_contains($rawPrice, ',')
             ? str_replace(',', '.', str_replace('.', '', $rawPrice))
             : $rawPrice;
+        $rawPriceDecorated = trim((string)($_POST['price_decorated'] ?? '0'));
+        $normalizedPriceDecorated = str_contains($rawPriceDecorated, ',')
+            ? str_replace(',', '.', str_replace('.', '', $rawPriceDecorated))
+            : $rawPriceDecorated;
         $uploadedImage = uploaded_service_image();
 
         $data = [
             trim($_POST['name'] ?? ''),
             trim($_POST['description'] ?? ''),
             (float)$normalizedPrice,
+            (float)$normalizedPriceDecorated,
             max(15, (int)($_POST['duration_minutes'] ?? 30)),
             $uploadedImage ?? trim($_POST['image_url'] ?? ''),
             isset($_POST['active']) ? 1 : 0,
@@ -277,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare('
                 UPDATE services
-                SET name = ?, description = ?, price = ?, duration_minutes = ?, image_url = ?, active = ?
+                SET name = ?, description = ?, price = ?, price_decorated = ?, duration_minutes = ?, image_url = ?, active = ?
                 WHERE id = ?
             ');
             $stmt->execute([...$data, $id]);
@@ -285,8 +295,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt = $pdo->prepare('
-            INSERT INTO services (name, description, price, duration_minutes, image_url, active)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO services (name, description, price, price_decorated, duration_minutes, image_url, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ');
         $stmt->execute($data);
         redirect_with('servicos', 'Serviço cadastrado.');
@@ -557,9 +567,14 @@ function nav_link(string $target, string $label, string $current): string
                             <div class="p-5">
                                 <h3 class="brand-serif text-2xl font-bold text-stone-950"><?= e($service['name']) ?></h3>
                                 <p class="mt-1 min-h-10 text-sm leading-relaxed text-stone-700"><?= e($service['description']) ?></p>
-                                <div class="mt-4 flex items-center justify-center gap-2 text-sm">
-                                    <span class="rounded-md bg-pink-50 px-3 py-1 font-black text-pink-700"><?= money_br($service['price']) ?></span>
-                                    <span class="rounded-md bg-rose-50 px-3 py-1 font-bold text-[#7b3935]"><?= (int)$service['duration_minutes'] ?> min</span>
+                                <div class="mt-4 flex flex-col items-center gap-2 text-sm">
+                                    <div class="flex flex-wrap justify-center gap-2">
+                                        <span class="rounded-md bg-pink-50 px-3 py-1 text-xs font-bold text-pink-700">Sem decoração: <?= money_br($service['price']) ?></span>
+                                        <span class="rounded-md bg-pink-100 px-3 py-1 text-xs font-bold text-pink-800">Com decoração: <?= money_br($service['price_decorated'] ?? 0) ?></span>
+                                    </div>
+                                    <?php if ((string)$config->salon->show_duration === '1'): ?>
+                                        <span class="rounded-md bg-rose-50 px-3 py-1 font-bold text-[#7b3935]"><?= (int)$service['duration_minutes'] ?> min</span>
+                                    <?php endif; ?>
                                 </div>
                                 <a class="mt-4 inline-flex rounded-md border border-pink-200 px-4 py-2 text-sm font-black text-pink-700 transition hover:bg-pink-50" href="?page=agendar&service=<?= (int)$service['id'] ?>">Agendar</a>
                             </div>
@@ -616,7 +631,7 @@ function nav_link(string $target, string $label, string $current): string
                                 <option value="">Selecione</option>
                                 <?php foreach ($services as $service): ?>
                                     <option value="<?= (int)$service['id'] ?>" <?= selected((string)($_GET['service'] ?? ''), (string)$service['id']) ?>>
-                                        <?= e($service['name']) ?> - <?= money_br($service['price']) ?>
+                                        <?= e($service['name']) ?> - Sem: <?= money_br($service['price']) ?> / Com: <?= money_br($service['price_decorated'] ?? 0) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -691,6 +706,11 @@ function nav_link(string $target, string $label, string $current): string
                                 <span class="mb-1 block text-sm font-bold text-slate-700">TikTok</span>
                                 <input name="tiktok" value="<?= e((string)($config->social->tiktok ?? '')) ?>" placeholder="https://tiktok.com/@seu_perfil" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
+                            <label class="flex items-center gap-3 cursor-pointer py-2">
+                                <input type="checkbox" name="show_duration" value="1" <?= (string)$config->salon->show_duration === '1' ? 'checked' : '' ?> class="sr-only peer">
+                                <div class="relative w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                                <span class="text-sm font-bold text-slate-700">Exibir tempo de atendimento no catálogo</span>
+                            </label>
                             <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Salvar redes sociais</button>
                         </form>
                     <?php endif; ?>
@@ -698,7 +718,7 @@ function nav_link(string $target, string $label, string $current): string
             </section>
         <?php elseif ($page === 'marketing'): ?>
             <?php
-            $marketingServices = $pdo->query('SELECT id, name, price, description, image_url FROM services WHERE active = 1 ORDER BY name')->fetchAll();
+            $marketingServices = $pdo->query('SELECT id, name, price, price_decorated, description, image_url FROM services WHERE active = 1 ORDER BY name')->fetchAll();
             $stmt = $pdo->query("
                 SELECT mp.*, s.name AS service_name, s.price
                 FROM marketing_posts mp
@@ -1036,6 +1056,10 @@ function nav_link(string $target, string $label, string $current): string
                         <input name="price" required placeholder="Ex: 115,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
                     </label>
                     <label class="block">
+                        <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
+                        <input name="price_decorated" required placeholder="Ex: 125,00" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    </label>
+                    <label class="block">
                         <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
                         <input name="duration_minutes" type="number" value="30" min="15" class="w-full rounded-md border border-slate-300 px-3 py-2">
                     </label>
@@ -1071,6 +1095,10 @@ function nav_link(string $target, string $label, string $current): string
                             <label class="block">
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Valor</span>
                                 <input name="price" value="<?= e((string)$service['price']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                            </label>
+                            <label class="block">
+                                <span class="mb-1 block text-sm font-bold text-slate-700">Valor com decoração</span>
+                                <input name="price_decorated" value="<?= e((string)($service['price_decorated'] ?? 0)) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             </label>
                             <label class="block">
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Duração em minutos</span>
