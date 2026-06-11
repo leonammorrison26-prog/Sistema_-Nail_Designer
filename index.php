@@ -429,7 +429,7 @@ $flash = flash();
 function nav_link(string $target, string $label, string $current): string
 {
     $active = $target === $current ? 'bg-pink-600 text-white shadow-sm' : 'text-stone-950 hover:bg-rose-50 hover:text-pink-700';
-    return '<a class="rounded-md px-3 md:px-5 py-2 md:py-3 text-xs md:text-sm font-semibold transition ' . $active . '" href="?page=' . e($target) . '">' . e($label) . '</a>';
+    return '<a class="rounded-md px-5 py-3 text-sm font-semibold transition ' . $active . '" href="?page=' . e($target) . '">' . e($label) . '</a>';
 }
 ?>
 <!DOCTYPE html>
@@ -473,15 +473,15 @@ function nav_link(string $target, string $label, string $current): string
 </head>
 <body class="min-h-screen bg-[#fff7f5] text-stone-900">
     <header class="sticky top-0 z-20 border-b border-rose-100 bg-white/95 shadow-sm backdrop-blur">
-        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center md:justify-between gap-3 px-4 md:px-6 py-3">
-            <a href="?page=inicio" class="flex items-center gap-3 text-center md:text-left">
+        <div class="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
+            <a href="?page=inicio" class="flex items-center gap-3">
                 <img class="h-[66px] w-[66px] rounded-xl border border-rose-100 bg-white object-contain p-1 shadow-sm" src="assets/logo%20samara.png" alt="<?= e((string)$config->salon->name) ?>">
                 <span>
                     <strong class="block text-lg leading-tight"><?= e((string)$config->salon->name) ?></strong>
                     <small class="text-slate-500"><?= e((string)$config->salon->subtitle) ?></small>
                 </span>
             </a>
-            <nav class="flex flex-wrap items-center justify-center gap-1">
+            <nav class="flex flex-wrap items-center gap-1">
                 <?= nav_link('inicio', 'Catálogo', $page) ?>
                 <?= nav_link('agendar', 'Marcar horário', $page) ?>
                 <?= nav_link('redes', 'Redes Sociais', $page) ?>
@@ -492,7 +492,7 @@ function nav_link(string $target, string $label, string $current): string
                     <?php if (is_admin()): ?>
                         <?= nav_link('marketing', 'Marketing', $page) ?>
                     <?php endif; ?>
-                    <a class="rounded-md px-2 py-1 text-xs md:text-sm font-semibold text-slate-700 hover:bg-slate-100" href="?page=logout">Sair</a>
+                    <a class="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" href="?page=logout">Sair</a>
                 <?php else: ?>
                     <?= nav_link('login', 'Login equipe', $page) ?>
                 <?php endif; ?>
@@ -509,32 +509,29 @@ function nav_link(string $target, string $label, string $current): string
 
         <?php if ($page === 'inicio'): ?>
             <section class="home-hero border-b border-rose-100">
-                <div class="mx-auto grid min-h-[550px] md:min-h-[660px] max-w-[1440px] gap-6 md:gap-10 px-4 md:px-24 py-8 md:py-16 lg:grid-cols-[1fr_330px]">
-                    
-                    <div class="flex flex-col justify-center space-y-6 md:space-y-8">
-                        <div>
-                            <h1 class="brand-script text-5xl md:text-7xl lg:text-8xl text-pink-700">Nail Designer</h1>
+                <div class="mx-auto grid min-h-[660px] max-w-[1440px] gap-10 px-6 py-10 lg:grid-cols-[1fr_330px] lg:px-24 lg:py-16">
+                    <div class="flex max-w-4xl flex-col justify-center">
+                        <p class="brand-serif text-[clamp(58px,8vw,112px)] font-bold uppercase leading-[.78] text-[#bd665d]">
+                            Samara<br>Eduarda
+                        </p>
+                        <p class="brand-script mt-5 text-[clamp(46px,5vw,70px)] leading-none text-[#b76862]">Nail Designer</p>
+
+                        <div class="mt-8 grid max-w-2xl gap-4 text-xl leading-relaxed text-[#7b3935]">
+                            <p class="flex gap-4">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">+</span>
+                                <span>Realce sua beleza com unhas impecáveis e atendimento personalizado.</span>
+                            </p>
+                            <p class="flex gap-4">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-rose-200 bg-white/60 text-pink-500">~</span>
+                                <span>Especialista em unhas que valorizam sua autoestima.</span>
+                            </p>
                         </div>
 
-                        <div class="space-y-4 max-w-xl">
-                            <div class="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-3 rounded-2xl md:bg-transparent md:p-0">
-                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700 font-bold text-lg">+</span>
-                                <p class="text-sm md:text-lg text-stone-700 leading-tight">Realce sua beleza com unhas impecáveis e atendimento personalizado.</p>
-                            </div>
-                            <div class="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-3 rounded-2xl md:bg-transparent md:p-0">
-                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700 font-bold text-lg">~</span>
-                                <p class="text-sm md:text-lg text-stone-700 leading-tight">Especialista em unhas que valorizam sua autoestima.</p>
-                            </div>
+                        <div class="mt-7 flex flex-wrap gap-4">
+                            <a href="?page=agendar" class="rounded-lg bg-pink-600 px-9 py-4 text-lg font-black text-white shadow-sm transition hover:bg-pink-700">Agendar Agora</a>
+                            <a href="#catalogo" class="rounded-lg border border-pink-300 bg-white/70 px-9 py-4 text-lg font-black text-pink-600 shadow-sm transition hover:bg-white">Ver Trabalhos</a>
                         </div>
 
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                            <a href="?page=agendar" class="rounded-xl bg-pink-600 px-6 py-3.5 text-center text-sm font-bold text-white shadow-md transition hover:bg-pink-700 active:scale-95">
-                                Agendar Agora
-                            </a>
-                            <a href="#servicos-ancora" class="rounded-xl border border-pink-200 bg-white px-6 py-3.5 text-center text-sm font-bold text-pink-700 shadow-sm transition hover:bg-rose-50 active:scale-95">
-                                Ver Trabalhos
-                            </a>
-                        </div>
                     </div>
 
                     <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
@@ -545,11 +542,8 @@ function nav_link(string $target, string $label, string $current): string
                             <p class="brand-script mt-6 text-3xl text-[#a65a54]">Samara Eduarda</p>
                         </div>
                     </aside>
-
                 </div>
             </section>
-            
-            <div id="servicos-ancora"></div>
 
             <section id="catalogo" class="mx-auto max-w-[1440px] px-6 py-10 lg:px-24">
                 <div class="mb-4 flex items-end gap-4">
@@ -576,18 +570,18 @@ function nav_link(string $target, string $label, string $current): string
 
             <section class="mx-auto max-w-[1440px] px-6 pb-8 lg:px-24">
                 <div class="grid overflow-hidden rounded-md border border-rose-100 bg-white/85 shadow-[0_8px_18px_rgba(122,57,53,.10)] backdrop-blur sm:grid-cols-3">
-                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 text-center sm:border-b-0 sm:border-r lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
                         <strong class="brand-serif flex flex-wrap items-baseline gap-1.5 text-lg font-bold leading-none text-stone-950 lg:text-xl">
                             <span class="tracking-[1px]" aria-label="5 estrelas">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                             <span>5.0</span>
                         </strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">Nossas clientes recomendam</span>
                     </div>
-                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 text-center sm:border-b-0 sm:border-r lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center border-b border-rose-100 px-4 py-2 sm:border-b-0 sm:border-r lg:px-5">
                         <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+300</strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">atendimentos realizados</span>
                     </div>
-                    <div class="flex min-h-12 flex-col justify-center px-4 py-2 text-center lg:px-5">
+                    <div class="flex min-h-12 flex-col justify-center px-4 py-2 lg:px-5">
                         <strong class="brand-serif block text-xl font-bold leading-none text-stone-950 lg:text-2xl">+200</strong>
                         <span class="mt-1 text-sm leading-tight text-[#7b3935]">clientes satisfeitas</span>
                     </div>
