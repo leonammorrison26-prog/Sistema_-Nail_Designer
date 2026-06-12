@@ -55,12 +55,18 @@ function ensure_schema(): void
             name VARCHAR(120) NOT NULL,
             description TEXT NULL,
             price DECIMAL(10,2) NOT NULL DEFAULT 0,
+            price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0,
             duration_minutes INT NOT NULL DEFAULT 30,
             image_url VARCHAR(500) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'price_decorated'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec('ALTER TABLE services ADD price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER price');
+    }
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS appointments (

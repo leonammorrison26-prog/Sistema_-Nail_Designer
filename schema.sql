@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS services (
     name VARCHAR(120) NOT NULL,
     description TEXT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0,
     duration_minutes INT NOT NULL DEFAULT 30,
     image_url VARCHAR(500) NULL,
     active TINYINT(1) NOT NULL DEFAULT 1,
