@@ -17,4 +17,18 @@
     <facebook/>
     <tiktok/>
   </social>
+  <about>
+    <image>assets/01.jpeg</image>
+    <image_zoom>1</image_zoom>
+    <image_pos_x>0</image_pos_x>
+    <image_pos_y>0</image_pos_y>
+    <label>Sobre mim</label>
+    <text>Olá! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.</text>
+    <signature>Samara Eduarda</signature>
+    <text_font>brand-serif</text_font>
+    <signature_font>brand-script</signature_font>
+    <label_color>#bd665d</label_color>
+    <text_color>#743632</text_color>
+    <signature_color>#a65a54</signature_color>
+  </about>
 </app>
