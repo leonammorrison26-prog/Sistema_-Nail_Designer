@@ -785,9 +785,18 @@ function service_image_adjuster(string $id, array $service = []): string
                 line-height: 1.55 !important;
             }
 
-            .home-hero .brand-script + div span {
+            .home-hero .brand-script + div p {
+                align-items: flex-start !important;
+            }
+
+            .home-hero .brand-script + div p > span:first-child {
                 height: 2.5rem !important;
                 width: 2.5rem !important;
+            }
+
+            .home-hero .brand-script + div p > span:last-child {
+                width: auto !important;
+                min-width: 0;
             }
 
             .home-hero .mt-7 {
