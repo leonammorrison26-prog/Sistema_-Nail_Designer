@@ -701,6 +701,168 @@ function service_image_adjuster(string $id, array $service = []): string
         #catalogo article img {
             transform-origin: center;
         }
+
+        @media (max-width: 640px) {
+            html,
+            body {
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            header > div {
+                align-items: flex-start !important;
+                gap: .75rem !important;
+                padding: .75rem 1rem !important;
+            }
+
+            header a[href="?page=inicio"] {
+                width: 100%;
+            }
+
+            header a[href="?page=inicio"] img {
+                height: 54px !important;
+                width: 54px !important;
+                border-radius: .75rem !important;
+            }
+
+            header a[href="?page=inicio"] strong {
+                max-width: 260px;
+                font-size: 1.05rem !important;
+                line-height: 1.08 !important;
+            }
+
+            header nav {
+                display: grid !important;
+                width: 100%;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: .5rem !important;
+            }
+
+            header nav a {
+                display: flex !important;
+                min-height: 44px;
+                align-items: center;
+                justify-content: center;
+                padding: .7rem .55rem !important;
+                text-align: center;
+                font-size: .9rem !important;
+                line-height: 1.05 !important;
+            }
+
+            main.mx-auto {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+
+            .home-hero {
+                background:
+                    linear-gradient(180deg, rgba(255, 246, 245, .98) 0%, rgba(255, 246, 245, .88) 48%, rgba(255, 246, 245, .68) 100%),
+                    url("https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=80");
+                background-position: center top;
+            }
+
+            .home-hero > div {
+                min-height: 0 !important;
+                gap: 1.5rem !important;
+                padding: 2rem 1.25rem 2.25rem !important;
+            }
+
+            .home-hero .brand-serif {
+                font-size: clamp(3rem, 15vw, 4.2rem) !important;
+                line-height: .82 !important;
+                letter-spacing: 0 !important;
+            }
+
+            .home-hero .brand-script {
+                margin-top: .85rem !important;
+                font-size: clamp(2.35rem, 12vw, 3.4rem) !important;
+            }
+
+            .home-hero .brand-script + div {
+                margin-top: 1.5rem !important;
+                gap: 1rem !important;
+                font-size: 1.12rem !important;
+                line-height: 1.55 !important;
+            }
+
+            .home-hero .brand-script + div span {
+                height: 2.5rem !important;
+                width: 2.5rem !important;
+            }
+
+            .home-hero .mt-7 {
+                display: grid !important;
+                gap: .8rem !important;
+                margin-top: 1.5rem !important;
+            }
+
+            .home-hero .mt-7 a {
+                width: 100%;
+                padding: 1rem 1.25rem !important;
+                text-align: center;
+                font-size: 1rem !important;
+            }
+
+            .home-hero aside {
+                align-self: stretch !important;
+                border-radius: .9rem !important;
+                padding: .45rem !important;
+            }
+
+            .home-hero aside > div:first-child {
+                height: 270px !important;
+                border-radius: .75rem !important;
+            }
+
+            .home-hero aside > div:last-child {
+                padding: 1.15rem 1rem 1.35rem !important;
+            }
+
+            .home-hero aside .brand-script {
+                font-size: 2.35rem !important;
+            }
+
+            #catalogo {
+                padding: 2rem 1rem !important;
+            }
+
+            #catalogo .mb-4 {
+                align-items: center !important;
+            }
+
+            #catalogo h2 {
+                font-size: 1.8rem !important;
+                line-height: 1 !important;
+            }
+
+            #catalogo article h3 {
+                font-size: 1.55rem !important;
+                line-height: 1.05 !important;
+            }
+
+            section {
+                min-width: 0;
+            }
+
+            input,
+            select,
+            textarea,
+            button {
+                max-width: 100%;
+            }
+
+            .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 720px;
+            }
+
+            #marketing_canvas {
+                max-width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-[#fff7f5] text-stone-900">
