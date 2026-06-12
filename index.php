@@ -565,7 +565,7 @@ function nav_link(string $target, string $label, string $current): string
                 <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                     <?php foreach ($services as $service): ?>
                         <article class="overflow-hidden rounded-lg border border-rose-100 bg-white text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-                            <img class="h-32 w-full object-cover" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=700&q=85') ?>" alt="<?= e($service['name']) ?>">
+                            <img class="h-40 w-full bg-rose-50 object-contain p-2" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=700&q=85') ?>" alt="<?= e($service['name']) ?>">
                             <div class="p-5">
                                 <h3 class="brand-serif text-2xl font-bold text-stone-950"><?= e($service['name']) ?></h3>
                                 <p class="mt-1 min-h-10 text-sm leading-relaxed text-stone-700"><?= e($service['description']) ?></p>
