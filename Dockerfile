@@ -5,12 +5,9 @@ RUN docker-php-ext-install pdo pdo_mysql
 
 # Garante que apenas o MPM compativel com mod_php fique ativo no Apache.
 RUN set -eux; \
-    find /etc/apache2/mods-enabled -maxdepth 1 -type l -name 'mpm_*' -delete; \
-    ln -sf ../mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load; \
-    if [ -f /etc/apache2/mods-available/mpm_prefork.conf ]; then \
-        ln -sf ../mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf; \
-    fi; \
-    apache2ctl -M | grep 'mpm_'; \
+    rm -f /etc/apache2/mods-enabled/mpm_*; \
+    a2dismod -f mpm_event mpm_worker || true; \
+    a2enmod mpm_prefork; \
     test "$(apache2ctl -M 2>/dev/null | grep -c 'mpm_')" = "1"; \
     apache2ctl -t
 
@@ -27,4 +24,4 @@ RUN mkdir -p /var/www/html/assets/uploads && \
 
 EXPOSE 80
 
-CMD ["bash", "-lc", "set -e; apache2fn() { apache2ctl -D FOREGROUND; }; apache2fn"]
+CMD ["bash", "-lc", "set -e; rm -f /etc/apache2/mods-enabled/mpm_*; a2dismod -f mpm_event mpm_worker >/dev/null 2>&1 || true; a2enmod mpm_prefork >/dev/null 2>&1; test \"$(apache2ctl -M 2>/dev/null | grep -c 'mpm_')\" = \"1\"; apache2ctl -D FOREGROUND"]
