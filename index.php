@@ -12,7 +12,7 @@ try {
 } catch (Throwable $exception) {
     http_response_code(500);
     echo '<h1>Erro ao conectar no MySQL</h1>';
-    echo '<p>Confira as variáveis DB_HOST, DB_PORT, DB_NAME, DB_USER e DB_PASS ou DATABASE_URL.</p>';
+    echo '<p>Confira DATABASE_URL ou as variaveis AIVEN_DB_HOST/DB_HOST, AIVEN_DB_PORT/DB_PORT, AIVEN_DB_NAME/DB_NAME, AIVEN_DB_USER/DB_USER e AIVEN_DB_PASS/DB_PASS. Se a Aiven exigir SSL, configure AIVEN_CA_CERT.</p>';
     echo '<pre>' . e($exception->getMessage()) . '</pre>';
     exit;
 }
@@ -48,7 +48,7 @@ function uploaded_service_image(): ?string
         redirect_with('servicos', 'Envie uma foto nos formatos JPG, PNG, WEBP ou GIF.', 'error');
     }
 
-    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads';
+    $uploadDir = upload_dir();
     if (!is_dir($uploadDir)) {
         if (!@mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
             redirect_with('servicos', 'Erro: A pasta de fotos não tem permissão de escrita.', 'error');
@@ -62,7 +62,7 @@ function uploaded_service_image(): ?string
         redirect_with('servicos', 'NÃ£o foi possÃ­vel salvar a foto enviada.', 'error');
     }
 
-    return 'assets/uploads/' . $filename;
+    return upload_url($filename);
 }
 
 function uploaded_about_image(): ?string
@@ -92,7 +92,7 @@ function uploaded_about_image(): ?string
         redirect_with('sobre', 'Envie uma foto nos formatos JPG, PNG, WEBP ou GIF.', 'error');
     }
 
-    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads';
+    $uploadDir = upload_dir();
     if (!is_dir($uploadDir)) {
         if (!@mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
             redirect_with('sobre', 'Erro: A pasta de fotos nao tem permissao de escrita.', 'error');
@@ -106,7 +106,7 @@ function uploaded_about_image(): ?string
         redirect_with('sobre', 'Nao foi possivel salvar a foto enviada.', 'error');
     }
 
-    return 'assets/uploads/' . $filename;
+    return upload_url($filename);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -262,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_socials') {
         require_admin();
-        $configPath = __DIR__ . '/config.xml';
+        $configPath = app_config_path();
         $xml = simplexml_load_file($configPath);
 
         if (!$xml instanceof SimpleXMLElement) {
@@ -291,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_about') {
         require_admin();
-        $configPath = __DIR__ . '/config.xml';
+        $configPath = app_config_path();
         $xml = simplexml_load_file($configPath);
 
         if (!$xml instanceof SimpleXMLElement) {

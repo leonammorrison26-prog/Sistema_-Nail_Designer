@@ -19,13 +19,40 @@ function db(): PDO
         $settings['database']
     );
 
-    $pdo = new PDO($dsn, $settings['user'], $settings['password'], [
+    $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+        PDO::ATTR_TIMEOUT => 15,
+    ];
+
+    $sslCaPath = mysql_ssl_ca_path();
+    if ($sslCaPath !== null && defined('PDO::MYSQL_ATTR_SSL_CA')) {
+        $options[PDO::MYSQL_ATTR_SSL_CA] = $sslCaPath;
+    }
+
+    $pdo = new PDO($dsn, $settings['user'], $settings['password'], $options);
 
     return $pdo;
+}
+
+function mysql_ssl_ca_path(): ?string
+{
+    $sslCaPath = env_value('MYSQL_SSL_CA_PATH') ?? env_value('AIVEN_CA_CERT_PATH');
+    if ($sslCaPath !== null && $sslCaPath !== '' && file_exists($sslCaPath)) {
+        return $sslCaPath;
+    }
+
+    $sslCa = env_value('MYSQL_SSL_CA') ?? env_value('AIVEN_CA_CERT');
+    if ($sslCa === null || $sslCa === '') {
+        return null;
+    }
+
+    $sslCa = str_replace('\n', "\n", $sslCa);
+    $path = sys_get_temp_dir() . '/mysql-ca.pem';
+    file_put_contents($path, $sslCa);
+
+    return $path;
 }
 
 function ensure_schema(): void

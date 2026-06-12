@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(160) NOT NULL UNIQUE,
+    phone VARCHAR(60) NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin','manicure','manicure_admin') NOT NULL DEFAULT 'manicure',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -40,4 +41,29 @@ CREATE TABLE IF NOT EXISTS appointments (
     CONSTRAINT fk_appointments_service FOREIGN KEY (service_id) REFERENCES services(id),
     CONSTRAINT fk_appointments_manicure FOREIGN KEY (manicure_id) REFERENCES users(id),
     INDEX idx_appointments_slot (manicure_id, appointment_date, appointment_time, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS manicure_availability (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    manicure_id INT NOT NULL,
+    available_date DATE NOT NULL,
+    available_time TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_availability_manicure FOREIGN KEY (manicure_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_manicure_slot (manicure_id, available_date, available_time),
+    INDEX idx_availability_lookup (manicure_id, available_date, available_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS marketing_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    service_id INT NULL,
+    channel ENUM('instagram','whatsapp_status','both') NOT NULL DEFAULT 'both',
+    caption TEXT NOT NULL,
+    image_url VARCHAR(500) NULL,
+    scheduled_for DATETIME NULL,
+    status ENUM('rascunho','agendado','publicado') NOT NULL DEFAULT 'rascunho',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_marketing_service FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL,
+    INDEX idx_marketing_schedule (status, scheduled_for)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

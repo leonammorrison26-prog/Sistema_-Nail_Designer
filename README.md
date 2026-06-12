@@ -1,65 +1,108 @@
 # Sistema Samara Eduarda Nail Designer
 
-Sistema simples em PHP, SimpleXML, HTML, Tailwind CSS e MySQL para salão de manicure e pedicure.
+Sistema em PHP, SimpleXML, HTML, Tailwind CSS e MySQL para salao de manicure e pedicure.
 
 ## Recursos
 
-- Catálogo público com foto, valor e duração dos serviços.
-- Agendamento público por serviço, manicure, data e horário.
-- Login de equipe com tipos `admin` e `manicure`.
-- Admin cadastra/apaga usuários e gerencia serviços.
-- Admin vê toda a agenda; manicure vê os próprios horários.
-- Configurações do salão e horário de funcionamento em `config.xml` usando SimpleXML.
+- Catalogo publico com foto, valor e duracao dos servicos.
+- Agendamento publico por servico, manicure, data e horario.
+- Login de equipe com perfis `admin`, `manicure` e `manicure_admin`.
+- Admin gerencia usuarios, servicos, horarios, redes sociais e a secao Sobre mim.
+- Tabelas criadas/atualizadas automaticamente no MySQL.
 
 ## Login inicial
 
 Ao abrir pela primeira vez, o sistema cria:
 
-- Login: `admin`
-- Senha: `123456`
-- Manicure inicial: `sammy@sammy.com` / `sammy123`
+- Admin: `admin` / `123456`
+- Manicure: `sammy@sammy.com` / `sammy123`
 
-Troque essa senha criando outro admin e apagando o padrão, ou edite direto no banco.
+Troque essas senhas depois do primeiro acesso.
 
-## Banco de dados
+## Railway + Aiven
 
-Crie um banco MySQL e configure variáveis de ambiente:
+O projeto usa Dockerfile e esta pronto para Railway. Configure as variaveis no servico da aplicacao, em **Variables**.
+
+Forma recomendada para Aiven:
 
 ```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=salao_sammy
-DB_USER=root
-DB_PASS=
+DATABASE_URL=mysql://USUARIO:SENHA@HOST_AIVEN:PORTA/NOME_BANCO
 APP_TIMEZONE=America/Sao_Paulo
 ```
 
-Também funciona com `DATABASE_URL`, comum em hospedagens:
+Tambem funciona com variaveis separadas:
 
 ```env
-DATABASE_URL=mysql://usuario:senha@host:3306/banco
+DB_HOST=HOST_AIVEN
+DB_PORT=PORTA_AIVEN
+DB_NAME=NOME_BANCO
+DB_USER=USUARIO
+DB_PASS=SENHA
+APP_TIMEZONE=America/Sao_Paulo
 ```
 
-As tabelas são criadas automaticamente pelo PHP. O arquivo `schema.sql` fica como referência se quiser importar manualmente.
-
-## Notificações
-
-Ao criar um agendamento, o sistema tenta avisar a manicure cadastrada no serviço:
-
-- E-mail: usa o `mail()` do PHP e envia um convite de agenda `.ics` junto com a mensagem. Em hospedagem, configure o envio SMTP/servidor de e-mail. Opcionalmente defina `NOTIFY_FROM_EMAIL`.
-- WhatsApp: usa a API oficial do WhatsApp Cloud. Defina `WHATSAPP_ACCESS_TOKEN` e `WHATSAPP_PHONE_NUMBER_ID`.
-
-Exemplo:
+Aliases aceitos para manter o Aiven como banco padrao:
 
 ```env
-NOTIFY_FROM_EMAIL=agenda@samaraneil.com
+AIVEN_DATABASE_URL=mysql://USUARIO:SENHA@HOST_AIVEN:PORTA/NOME_BANCO
+AIVEN_DB_HOST=HOST_AIVEN
+AIVEN_DB_PORT=PORTA_AIVEN
+AIVEN_DB_NAME=NOME_BANCO
+AIVEN_DB_USER=USUARIO
+AIVEN_DB_PASS=SENHA
+```
+
+Se a Aiven exigir certificado CA, copie o conteudo do CA certificate para uma variavel:
+
+```env
+AIVEN_CA_CERT="-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----"
+```
+
+Ou informe um caminho dentro do container:
+
+```env
+AIVEN_CA_CERT_PATH=/caminho/ca.pem
+```
+
+O app tambem aceita `MYSQL_SSL_CA` e `MYSQL_SSL_CA_PATH`.
+
+## Persistencia no Railway
+
+O banco fica na Aiven, mas arquivos enviados pelo painel e o `config.xml` precisam de persistencia se voce nao quiser perder mudancas em redeploy.
+
+Opcao simples: crie um Railway Volume e monte em:
+
+```txt
+/var/www/html/assets/uploads
+```
+
+Para persistir tambem o `config.xml`, monte outro volume ou uma pasta compartilhada e defina:
+
+```env
+APP_CONFIG_PATH=/data/config.xml
+UPLOAD_DIR=/var/www/html/assets/uploads
+UPLOAD_URL_PREFIX=assets/uploads
+```
+
+Se voce nao configurar volume, o sistema ainda roda, mas uploads e alteracoes do `config.xml` podem sumir em um novo deploy.
+
+## Notificacoes
+
+E-mail usa `mail()` do PHP e WhatsApp usa a API Cloud da Meta:
+
+```env
+NOTIFY_FROM_EMAIL=agenda@seudominio.com
 WHATSAPP_ACCESS_TOKEN=token_da_meta
 WHATSAPP_PHONE_NUMBER_ID=id_do_numero_da_meta
 ```
 
+Se essas variaveis nao existirem, o sistema continua funcionando; apenas nao envia a notificacao correspondente.
+
 ## Rodar localmente
 
-Este projeto ja vem com scripts locais para esta maquina:
+Este projeto tem scripts locais para esta maquina:
 
 ```powershell
 .\start-mariadb-local.ps1
@@ -68,13 +111,13 @@ Este projeto ja vem com scripts locais para esta maquina:
 
 Depois acesse `http://localhost:8000`.
 
-Para parar os servidores locais:
+Para parar:
 
 ```powershell
 .\stop-local.ps1
 ```
 
-Banco local criado:
+Banco local:
 
 - Host: `localhost`
 - Porta: `3306`
@@ -82,8 +125,8 @@ Banco local criado:
 - Usuario: `root`
 - Senha: `root`
 
-O PHP portátil fica em `.tools/php`. Os scripts utilizam `$PSScriptRoot` para localizar as ferramentas automaticamente, independentemente da letra da unidade (C:, D:, etc).
+## Diagnostico rapido
 
-## Render
+Se aparecer `php_network_getaddresses` ou `getaddrinfo failed`, o problema e o host do banco. Copie novamente o Host e a Porta direto da tela **Overview > Connection information** da Aiven e atualize `DATABASE_URL` ou `DB_HOST` no Railway.
 
-No Render, use um serviço Web com PHP/Apache ou Docker PHP. Configure as variáveis do MySQL em Environment. O sistema usa Tailwind por CDN, então não precisa de build de frontend.
+Depois de alterar variaveis no Railway, faca redeploy para aplicar.
