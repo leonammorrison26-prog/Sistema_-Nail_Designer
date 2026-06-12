@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(120) NOT NULL,
     email VARCHAR(160) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('admin','manicure') NOT NULL DEFAULT 'manicure',
+    role ENUM('admin','manicure','manicure_admin') NOT NULL DEFAULT 'manicure',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS services (
     price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0,
     duration_minutes INT NOT NULL DEFAULT 30,
     image_url VARCHAR(500) NULL,
+    image_fit ENUM('contain','cover') NOT NULL DEFAULT 'contain',
+    image_zoom DECIMAL(4,2) NOT NULL DEFAULT 1,
+    image_pos_x INT NOT NULL DEFAULT 0,
+    image_pos_y INT NOT NULL DEFAULT 0,
+    image_rotation INT NOT NULL DEFAULT 0,
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

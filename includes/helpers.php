@@ -38,7 +38,7 @@ function is_logged_in(): bool
 
 function is_admin(): bool
 {
-    return (current_user()['role'] ?? '') === 'admin';
+    return in_array(current_user()['role'] ?? '', ['admin', 'manicure_admin'], true);
 }
 
 function require_login(): void

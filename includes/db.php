@@ -39,10 +39,12 @@ function ensure_schema(): void
             email VARCHAR(160) NOT NULL UNIQUE,
             phone VARCHAR(60) NULL,
             password_hash VARCHAR(255) NOT NULL,
-            role ENUM('admin','manicure') NOT NULL DEFAULT 'manicure',
+            role ENUM('admin','manicure','manicure_admin') NOT NULL DEFAULT 'manicure',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','manicure','manicure_admin') NOT NULL DEFAULT 'manicure'");
 
     $columnExists = $pdo->query("SHOW COLUMNS FROM users LIKE 'phone'")->fetch();
     if (!$columnExists) {
@@ -58,6 +60,11 @@ function ensure_schema(): void
             price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0,
             duration_minutes INT NOT NULL DEFAULT 30,
             image_url VARCHAR(500) NULL,
+            image_fit ENUM('contain','cover') NOT NULL DEFAULT 'contain',
+            image_zoom DECIMAL(4,2) NOT NULL DEFAULT 1,
+            image_pos_x INT NOT NULL DEFAULT 0,
+            image_pos_y INT NOT NULL DEFAULT 0,
+            image_rotation INT NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -66,6 +73,31 @@ function ensure_schema(): void
     $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'price_decorated'")->fetch();
     if (!$columnExists) {
         $pdo->exec('ALTER TABLE services ADD price_decorated DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER price');
+    }
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'image_fit'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec("ALTER TABLE services ADD image_fit ENUM('contain','cover') NOT NULL DEFAULT 'contain' AFTER image_url");
+    }
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'image_zoom'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec('ALTER TABLE services ADD image_zoom DECIMAL(4,2) NOT NULL DEFAULT 1 AFTER image_fit');
+    }
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'image_pos_x'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec('ALTER TABLE services ADD image_pos_x INT NOT NULL DEFAULT 0 AFTER image_zoom');
+    }
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'image_pos_y'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec('ALTER TABLE services ADD image_pos_y INT NOT NULL DEFAULT 0 AFTER image_pos_x');
+    }
+
+    $columnExists = $pdo->query("SHOW COLUMNS FROM services LIKE 'image_rotation'")->fetch();
+    if (!$columnExists) {
+        $pdo->exec('ALTER TABLE services ADD image_rotation INT NOT NULL DEFAULT 0 AFTER image_pos_y');
     }
 
     $pdo->exec("

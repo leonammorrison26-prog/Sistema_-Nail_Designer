@@ -65,6 +65,50 @@ function uploaded_service_image(): ?string
     return 'assets/uploads/' . $filename;
 }
 
+function uploaded_about_image(): ?string
+{
+    if (
+        empty($_FILES['about_image'])
+        || !isset($_FILES['about_image']['error'])
+        || $_FILES['about_image']['error'] === UPLOAD_ERR_NO_FILE
+    ) {
+        return null;
+    }
+
+    if ($_FILES['about_image']['error'] !== UPLOAD_ERR_OK) {
+        redirect_with('sobre', 'Nao foi possivel enviar a foto. Tente novamente.', 'error');
+    }
+
+    $tmpName = $_FILES['about_image']['tmp_name'];
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+    ];
+    $mimeType = mime_content_type($tmpName) ?: '';
+
+    if (!isset($allowedTypes[$mimeType])) {
+        redirect_with('sobre', 'Envie uma foto nos formatos JPG, PNG, WEBP ou GIF.', 'error');
+    }
+
+    $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads';
+    if (!is_dir($uploadDir)) {
+        if (!@mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+            redirect_with('sobre', 'Erro: A pasta de fotos nao tem permissao de escrita.', 'error');
+        }
+    }
+
+    $filename = 'sobre-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $allowedTypes[$mimeType];
+    $destination = $uploadDir . '/' . $filename;
+
+    if (!move_uploaded_file($tmpName, $destination)) {
+        redirect_with('sobre', 'Nao foi possivel salvar a foto enviada.', 'error');
+    }
+
+    return 'assets/uploads/' . $filename;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = $_POST['action'] ?? '';
@@ -145,7 +189,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         $password = (string)($_POST['password'] ?? '');
-        $role = $_POST['role'] === 'admin' ? 'admin' : 'manicure';
+        $allowedRoles = ['admin', 'manicure', 'manicure_admin'];
+        $role = in_array($_POST['role'] ?? '', $allowedRoles, true) ? $_POST['role'] : 'manicure';
 
         if ($name === '' || $email === '' || strlen($password) < 6) {
             redirect_with('usuarios', 'Informe nome, e-mail e senha com no mínimo 6 caracteres.', 'error');
@@ -157,6 +202,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect_with('usuarios', 'Usuário cadastrado.');
         } catch (PDOException) {
             redirect_with('usuarios', 'Já existe usuário com esse e-mail.', 'error');
+        }
+    }
+
+    if ($action === 'update_user') {
+        require_admin();
+        $id = (int)($_POST['id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $password = (string)($_POST['password'] ?? '');
+        $allowedRoles = ['admin', 'manicure', 'manicure_admin'];
+        $role = in_array($_POST['role'] ?? '', $allowedRoles, true) ? $_POST['role'] : 'manicure';
+
+        if (!$id || $name === '' || $email === '') {
+            redirect_with('usuarios', 'Informe nome e e-mail para atualizar o usuario.', 'error');
+        }
+
+        if ($password !== '' && strlen($password) < 6) {
+            redirect_with('usuarios', 'A nova senha precisa ter no minimo 6 caracteres.', 'error');
+        }
+
+        try {
+            if ($password !== '') {
+                $stmt = $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, role = ?, password_hash = ? WHERE id = ?');
+                $stmt->execute([$name, $email, $phone ?: null, $role, password_hash($password, PASSWORD_DEFAULT), $id]);
+            } else {
+                $stmt = $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, role = ? WHERE id = ?');
+                $stmt->execute([$name, $email, $phone ?: null, $role, $id]);
+            }
+
+            if ($id === (int)current_user()['id']) {
+                $_SESSION['user']['name'] = $name;
+                $_SESSION['user']['email'] = $email;
+                $_SESSION['user']['role'] = $role;
+            }
+
+            redirect_with('usuarios', 'Usuario atualizado.');
+        } catch (PDOException) {
+            redirect_with('usuarios', 'Nao foi possivel atualizar: ja existe usuario com esse e-mail.', 'error');
         }
     }
 
@@ -203,6 +287,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $xml->asXML($configPath);
         redirect_with('redes', 'Configurações atualizadas.');
+    }
+
+    if ($action === 'save_about') {
+        require_admin();
+        $configPath = __DIR__ . '/config.xml';
+        $xml = simplexml_load_file($configPath);
+
+        if (!$xml instanceof SimpleXMLElement) {
+            redirect_with('sobre', 'Nao foi possivel atualizar o Sobre mim.', 'error');
+        }
+
+        if (!isset($xml->about)) {
+            $xml->addChild('about');
+        }
+
+        foreach (['image', 'image_zoom', 'image_pos_x', 'image_pos_y', 'label', 'text', 'signature', 'text_font', 'signature_font', 'label_color', 'text_color', 'signature_color'] as $field) {
+            if (!isset($xml->about->{$field})) {
+                $xml->about->addChild($field);
+            }
+        }
+
+        $uploadedImage = uploaded_about_image();
+        $imageUrl = $uploadedImage ?? trim($_POST['image_url'] ?? '');
+        $allowedFonts = ['brand-serif', 'brand-script', 'font-sans'];
+        $textFont = in_array($_POST['text_font'] ?? '', $allowedFonts, true) ? $_POST['text_font'] : 'brand-serif';
+        $signatureFont = in_array($_POST['signature_font'] ?? '', $allowedFonts, true) ? $_POST['signature_font'] : 'brand-script';
+        $colorPattern = '/^#[0-9a-fA-F]{6}$/';
+        $labelColor = preg_match($colorPattern, $_POST['label_color'] ?? '') ? $_POST['label_color'] : '#bd665d';
+        $textColor = preg_match($colorPattern, $_POST['text_color'] ?? '') ? $_POST['text_color'] : '#743632';
+        $signatureColor = preg_match($colorPattern, $_POST['signature_color'] ?? '') ? $_POST['signature_color'] : '#a65a54';
+        $imageZoom = max(0.5, min(4, (float)($_POST['image_zoom'] ?? 1)));
+        $imagePosX = max(-45, min(45, (int)($_POST['image_pos_x'] ?? 0)));
+        $imagePosY = max(-45, min(45, (int)($_POST['image_pos_y'] ?? 0)));
+
+        $xml->about->image = $imageUrl !== '' ? $imageUrl : 'assets/01.jpeg';
+        $xml->about->image_zoom = (string)$imageZoom;
+        $xml->about->image_pos_x = (string)$imagePosX;
+        $xml->about->image_pos_y = (string)$imagePosY;
+        $xml->about->label = trim($_POST['label'] ?? '') ?: 'Sobre mim';
+        $xml->about->text = trim($_POST['text'] ?? '') ?: 'Ola! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.';
+        $xml->about->signature = trim($_POST['signature'] ?? '') ?: 'Samara Eduarda';
+        $xml->about->text_font = $textFont;
+        $xml->about->signature_font = $signatureFont;
+        $xml->about->label_color = $labelColor;
+        $xml->about->text_color = $textColor;
+        $xml->about->signature_color = $signatureColor;
+
+        $xml->asXML($configPath);
+        redirect_with('sobre', 'Sobre mim atualizado.');
     }
 
     if ($action === 'save_marketing_post') {
@@ -271,6 +404,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? str_replace(',', '.', str_replace('.', '', $rawPriceDecorated))
             : $rawPriceDecorated;
         $uploadedImage = uploaded_service_image();
+        $imageFit = in_array($_POST['image_fit'] ?? '', ['contain', 'cover'], true)
+            ? $_POST['image_fit']
+            : 'contain';
+        $imageZoom = max(0.5, min(4, (float)($_POST['image_zoom'] ?? 1)));
+        $imagePosX = max(-100, min(100, (int)($_POST['image_pos_x'] ?? 0)));
+        $imagePosY = max(-100, min(100, (int)($_POST['image_pos_y'] ?? 0)));
+        $imageRotation = ((int)($_POST['image_rotation'] ?? 0) % 360 + 360) % 360;
 
         $data = [
             trim($_POST['name'] ?? ''),
@@ -279,6 +419,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (float)$normalizedPriceDecorated,
             max(15, (int)($_POST['duration_minutes'] ?? 30)),
             $uploadedImage ?? trim($_POST['image_url'] ?? ''),
+            $imageFit,
+            $imageZoom,
+            $imagePosX,
+            $imagePosY,
+            $imageRotation,
             isset($_POST['active']) ? 1 : 0,
         ];
 
@@ -289,7 +434,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare('
                 UPDATE services
-                SET name = ?, description = ?, price = ?, price_decorated = ?, duration_minutes = ?, image_url = ?, active = ?
+                SET name = ?, description = ?, price = ?, price_decorated = ?, duration_minutes = ?, image_url = ?, image_fit = ?, image_zoom = ?, image_pos_x = ?, image_pos_y = ?, image_rotation = ?, active = ?
                 WHERE id = ?
             ');
             $stmt->execute([...$data, $id]);
@@ -297,8 +442,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt = $pdo->prepare('
-            INSERT INTO services (name, description, price, price_decorated, duration_minutes, image_url, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO services (name, description, price, price_decorated, duration_minutes, image_url, image_fit, image_zoom, image_pos_x, image_pos_y, image_rotation, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         $stmt->execute($data);
         redirect_with('servicos', 'Serviço cadastrado.');
@@ -408,7 +553,7 @@ if ($page === 'logout') {
 }
 
 $loginPages = ['agenda'];
-$adminPages = ['marketing', 'usuarios', 'servicos'];
+$adminPages = ['marketing', 'sobre', 'usuarios', 'servicos'];
 
 if (in_array($page, $adminPages, true)) {
     require_admin();
@@ -417,7 +562,7 @@ if (in_array($page, $adminPages, true)) {
 }
 
 $services = $pdo->query('SELECT * FROM services WHERE active = 1 ORDER BY name')->fetchAll();
-$manicures = $pdo->query("SELECT id, name FROM users WHERE role = 'manicure' ORDER BY name")->fetchAll();
+$manicures = $pdo->query("SELECT id, name FROM users WHERE role IN ('manicure', 'manicure_admin') ORDER BY name")->fetchAll();
 $stmt = $pdo->query("
     SELECT ma.manicure_id, ma.available_date, TIME_FORMAT(ma.available_time, '%H:%i') AS available_time
     FROM manicure_availability ma
@@ -437,11 +582,81 @@ foreach ($stmt->fetchAll() as $slot) {
     $availabilityByManicure[$manicureId][$date][] = $slot['available_time'];
 }
 $flash = flash();
+$about = $config->about ?? null;
+$aboutImage = trim((string)($about->image ?? '')) ?: 'assets/01.jpeg';
+$aboutLabel = trim((string)($about->label ?? '')) ?: 'Sobre mim';
+$aboutText = trim((string)($about->text ?? '')) ?: 'Ola! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.';
+$aboutSignature = trim((string)($about->signature ?? '')) ?: 'Samara Eduarda';
+$aboutTextFont = trim((string)($about->text_font ?? '')) ?: 'brand-serif';
+$aboutSignatureFont = trim((string)($about->signature_font ?? '')) ?: 'brand-script';
+$aboutLabelColor = trim((string)($about->label_color ?? '')) ?: '#bd665d';
+$aboutTextColor = trim((string)($about->text_color ?? '')) ?: '#743632';
+$aboutSignatureColor = trim((string)($about->signature_color ?? '')) ?: '#a65a54';
+$aboutImageZoom = max(0.5, min(4, (float)($about->image_zoom ?? 1)));
+$aboutImagePosX = max(-45, min(45, (int)($about->image_pos_x ?? 0)));
+$aboutImagePosY = max(-45, min(45, (int)($about->image_pos_y ?? 0)));
+$aboutImageTransform = sprintf(
+    'translate(%d%%, %d%%) scale(%s)',
+    $aboutImagePosX,
+    $aboutImagePosY,
+    rtrim(rtrim(number_format($aboutImageZoom, 2, '.', ''), '0'), '.')
+);
 
 function nav_link(string $target, string $label, string $current): string
 {
     $active = $target === $current ? 'bg-pink-600 text-white shadow-sm' : 'text-stone-950 hover:bg-rose-50 hover:text-pink-700';
     return '<a class="rounded-md px-5 py-3 text-sm font-semibold transition ' . $active . '" href="?page=' . e($target) . '">' . e($label) . '</a>';
+}
+
+function role_label(string $role): string
+{
+    return match ($role) {
+        'admin' => 'Admin',
+        'manicure_admin' => 'Manicure admin',
+        default => 'Manicure',
+    };
+}
+
+function service_image_adjuster(string $id, array $service = []): string
+{
+    $imageUrl = (string)($service['image_url'] ?? '');
+    $zoom = max(0.5, min(4, (float)($service['image_zoom'] ?? 1)));
+    $posX = max(-100, min(100, (int)($service['image_pos_x'] ?? 0)));
+    $posY = max(-100, min(100, (int)($service['image_pos_y'] ?? 0)));
+    $rotation = ((int)($service['image_rotation'] ?? 0) % 360 + 360) % 360;
+    $src = $imageUrl !== '' ? $imageUrl : 'assets/catalago.jpeg';
+
+    return '
+        <section class="service-image-adjuster rounded-md border border-pink-100 bg-pink-50/50 p-3 lg:col-span-6" data-adjuster="' . e($id) . '">
+            <input type="hidden" name="image_fit" value="contain">
+            <input type="hidden" name="image_zoom" value="' . e((string)$zoom) . '" data-adjuster-zoom-input>
+            <input type="hidden" name="image_pos_x" value="' . e((string)$posX) . '" data-adjuster-x-input>
+            <input type="hidden" name="image_pos_y" value="' . e((string)$posY) . '" data-adjuster-y-input>
+            <input type="hidden" name="image_rotation" value="' . e((string)$rotation) . '" data-adjuster-rotation-input>
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <div class="w-full max-w-sm">
+                    <span class="mb-2 block text-sm font-black text-slate-800">Ajuste a foto como ela vai aparecer no catalogo</span>
+                    <div class="service-image-frame relative h-40 w-full cursor-grab touch-none overflow-hidden rounded-lg border border-pink-200 bg-rose-50">
+                        <img data-adjuster-image class="absolute inset-0 h-full w-full object-contain" src="' . e($src) . '" alt="">
+                    </div>
+                    <button type="button" data-adjuster-ok class="mt-2 w-full rounded-md bg-pink-600 px-4 py-2 text-sm font-black text-white hover:bg-pink-700">OK, usar este ajuste</button>
+                </div>
+                <div class="grid flex-1 gap-3 lg:pt-7">
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-700">Zoom</span>
+                        <input type="range" min="0.5" max="4" step="0.05" value="' . e((string)$zoom) . '" data-adjuster-zoom class="w-full accent-pink-600">
+                    </label>
+                    <div>
+                        <span class="mb-1 block text-xs font-bold text-slate-700">Virar foto</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" data-adjuster-rotate-left class="rounded-md border border-pink-200 bg-white px-3 py-2 text-sm font-black text-pink-700 hover:bg-pink-50">Esquerda</button>
+                            <button type="button" data-adjuster-rotate-right class="rounded-md border border-pink-200 bg-white px-3 py-2 text-sm font-black text-pink-700 hover:bg-pink-50">Direita</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    ';
 }
 ?>
 <!DOCTYPE html>
@@ -481,6 +696,11 @@ function nav_link(string $target, string $label, string $current): string
             background-position: center;
             background-size: cover;
         }
+
+        .service-image-frame img,
+        #catalogo article img {
+            transform-origin: center;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-[#fff7f5] text-stone-900">
@@ -503,6 +723,7 @@ function nav_link(string $target, string $label, string $current): string
                     <?= nav_link('usuarios', 'Usuários', $page) ?>
                     <?php if (is_admin()): ?>
                         <?= nav_link('marketing', 'Marketing', $page) ?>
+                        <?= nav_link('sobre', 'Sobre mim', $page) ?>
                     <?php endif; ?>
                     <a class="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" href="?page=logout">Sair</a>
                 <?php else: ?>
@@ -547,11 +768,13 @@ function nav_link(string $target, string $label, string $current): string
                     </div>
 
                     <aside class="self-center rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
-                        <img class="h-[370px] w-full rounded-xl object-cover object-center" src="assets/01.jpeg" alt="Samara Eduarda Nail Designer">
-                        <div class="px-6 py-7 text-center text-[#743632]">
-                            <p class="text-xs font-bold uppercase tracking-wide text-[#bd665d]">Sobre mim</p>
-                            <p class="brand-serif mt-4 text-lg leading-relaxed">Olá! Sou Samara Eduarda, Nail Designer especializada em manicure, pedicure e cuidados que valorizam a beleza das suas unhas.</p>
-                            <p class="brand-script mt-6 text-3xl text-[#a65a54]">Samara Eduarda</p>
+                        <div class="relative h-[370px] w-full overflow-hidden rounded-xl bg-rose-50">
+                            <img class="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center" draggable="false" style="transform: <?= e($aboutImageTransform) ?>;" src="<?= e($aboutImage) ?>" alt="<?= e($aboutSignature) ?>">
+                        </div>
+                        <div class="px-6 py-7 text-center" style="color: <?= e($aboutTextColor) ?>">
+                            <p class="text-xs font-bold uppercase tracking-wide" style="color: <?= e($aboutLabelColor) ?>"><?= e($aboutLabel) ?></p>
+                            <p class="<?= e($aboutTextFont) ?> mt-4 text-lg leading-relaxed"><?= e($aboutText) ?></p>
+                            <p class="<?= e($aboutSignatureFont) ?> mt-6 text-3xl" style="color: <?= e($aboutSignatureColor) ?>"><?= e($aboutSignature) ?></p>
                         </div>
                     </aside>
                 </div>
@@ -564,8 +787,23 @@ function nav_link(string $target, string $label, string $current): string
                 </div>
                 <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                     <?php foreach ($services as $service): ?>
+                        <?php
+                        $imageZoom = max(0.5, min(4, (float)($service['image_zoom'] ?? 1)));
+                        $imagePosX = max(-100, min(100, (int)($service['image_pos_x'] ?? 0)));
+                        $imagePosY = max(-100, min(100, (int)($service['image_pos_y'] ?? 0)));
+                        $imageRotation = ((int)($service['image_rotation'] ?? 0) % 360 + 360) % 360;
+                        $imageTransform = sprintf(
+                            'translate(%d%%, %d%%) rotate(%ddeg) scale(%s)',
+                            $imagePosX,
+                            $imagePosY,
+                            $imageRotation,
+                            rtrim(rtrim(number_format($imageZoom, 2, '.', ''), '0'), '.')
+                        );
+                        ?>
                         <article class="overflow-hidden rounded-lg border border-rose-100 bg-white text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-                            <img class="h-40 w-full bg-rose-50 object-contain p-2" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=700&q=85') ?>" alt="<?= e($service['name']) ?>">
+                            <div class="relative h-40 w-full overflow-hidden bg-rose-50">
+                                <img class="absolute inset-0 h-full w-full object-contain" style="transform: <?= e($imageTransform) ?>;" src="<?= e($service['image_url'] ?: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=700&q=85') ?>" alt="<?= e($service['name']) ?>">
+                            </div>
                             <div class="p-5">
                                 <h3 class="brand-serif text-2xl font-bold text-stone-950"><?= e($service['name']) ?></h3>
                                 <p class="mt-1 min-h-10 text-sm leading-relaxed text-stone-700"><?= e($service['description']) ?></p>
@@ -996,6 +1234,78 @@ function nav_link(string $target, string $label, string $current): string
                     </table>
                 </div>
             </section>
+        <?php elseif ($page === 'sobre'): ?>
+            <section class="grid gap-6 lg:grid-cols-[1fr_360px]">
+                <form method="post" enctype="multipart/form-data" class="rounded-lg border border-rose-100 bg-white p-6 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-950">Sobre mim</h1>
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="save_about">
+                    <input type="hidden" name="image_zoom" value="<?= e((string)$aboutImageZoom) ?>" data-about-input="image_zoom">
+                    <input type="hidden" name="image_pos_x" value="<?= e((string)$aboutImagePosX) ?>" data-about-input="image_pos_x">
+                    <input type="hidden" name="image_pos_y" value="<?= e((string)$aboutImagePosY) ?>" data-about-input="image_pos_y">
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                        <label class="block sm:col-span-2">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Trocar foto</span>
+                            <input data-about-input="image_file" name="about_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full rounded-md border border-slate-300 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-bold file:text-pink-700">
+                        </label>
+                        <label class="block sm:col-span-2">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">URL da foto</span>
+                            <input data-about-input="image_url" name="image_url" value="<?= e($aboutImage) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Titulo pequeno</span>
+                            <input data-about-input="label" name="label" value="<?= e($aboutLabel) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Assinatura</span>
+                            <input data-about-input="signature" name="signature" value="<?= e($aboutSignature) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                        </label>
+                        <label class="block sm:col-span-2">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Texto</span>
+                            <textarea data-about-input="text" name="text" rows="5" class="w-full rounded-md border border-slate-300 px-3 py-2"><?= e($aboutText) ?></textarea>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Fonte do texto</span>
+                            <select data-about-input="text_font" name="text_font" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                <option value="brand-serif" <?= selected($aboutTextFont, 'brand-serif') ?>>Elegante</option>
+                                <option value="brand-script" <?= selected($aboutTextFont, 'brand-script') ?>>Assinatura</option>
+                                <option value="font-sans" <?= selected($aboutTextFont, 'font-sans') ?>>Simples</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Fonte da assinatura</span>
+                            <select data-about-input="signature_font" name="signature_font" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                <option value="brand-script" <?= selected($aboutSignatureFont, 'brand-script') ?>>Assinatura</option>
+                                <option value="brand-serif" <?= selected($aboutSignatureFont, 'brand-serif') ?>>Elegante</option>
+                                <option value="font-sans" <?= selected($aboutSignatureFont, 'font-sans') ?>>Simples</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Cor do titulo</span>
+                            <input data-about-input="label_color" type="color" name="label_color" value="<?= e($aboutLabelColor) ?>" class="h-11 w-full rounded-md border border-slate-300 px-2 py-1">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Cor do texto</span>
+                            <input data-about-input="text_color" type="color" name="text_color" value="<?= e($aboutTextColor) ?>" class="h-11 w-full rounded-md border border-slate-300 px-2 py-1">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-sm font-bold text-slate-700">Cor da assinatura</span>
+                            <input data-about-input="signature_color" type="color" name="signature_color" value="<?= e($aboutSignatureColor) ?>" class="h-11 w-full rounded-md border border-slate-300 px-2 py-1">
+                        </label>
+                        <button class="rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700 sm:col-span-2">Salvar Sobre mim</button>
+                    </div>
+                </form>
+                <aside class="self-start rounded-2xl border border-rose-200 bg-white/90 p-2 shadow-sm">
+                    <div data-about-frame class="relative h-[370px] w-full cursor-grab touch-none overflow-hidden rounded-xl bg-rose-50">
+                        <img data-about-preview="image" class="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center" draggable="false" style="transform: <?= e($aboutImageTransform) ?>;" src="<?= e($aboutImage) ?>" alt="<?= e($aboutSignature) ?>">
+                    </div>
+                    <div data-about-preview="body" class="px-6 py-7 text-center" style="color: <?= e($aboutTextColor) ?>">
+                        <p data-about-preview="label" class="text-xs font-bold uppercase tracking-wide" style="color: <?= e($aboutLabelColor) ?>"><?= e($aboutLabel) ?></p>
+                        <p data-about-preview="text" class="<?= e($aboutTextFont) ?> mt-4 text-lg leading-relaxed"><?= e($aboutText) ?></p>
+                        <p data-about-preview="signature" class="<?= e($aboutSignatureFont) ?> mt-6 text-3xl" style="color: <?= e($aboutSignatureColor) ?>"><?= e($aboutSignature) ?></p>
+                    </div>
+                </aside>
+            </section>
         <?php elseif ($page === 'usuarios'): ?>
             <?php
             $users = $pdo->query('SELECT id, name, email, phone, role, created_at FROM users ORDER BY name')->fetchAll();
@@ -1012,6 +1322,7 @@ function nav_link(string $target, string $label, string $current): string
                         <input required type="password" name="password" placeholder="Senha inicial" class="w-full rounded-md border border-slate-300 px-3 py-2">
                         <select name="role" class="w-full rounded-md border border-slate-300 px-3 py-2">
                             <option value="manicure">Manicure</option>
+                            <option value="manicure_admin">Manicure admin</option>
                             <option value="admin">Admin</option>
                         </select>
                         <button class="w-full rounded-lg bg-pink-600 px-5 py-3 font-black text-white hover:bg-pink-700">Salvar usuário</button>
@@ -1021,19 +1332,54 @@ function nav_link(string $target, string $label, string $current): string
                     <h2 class="text-2xl font-black text-slate-950">Usuários</h2>
                     <div class="mt-4 divide-y divide-slate-100">
                         <?php foreach ($users as $user): ?>
-                            <div class="flex items-center justify-between gap-4 py-3">
-                                <div>
-                                    <strong><?= e($user['name']) ?></strong>
-                                    <small class="block text-slate-500"><?= e($user['email']) ?> · <?= e($user['role']) ?></small>
-                                    <?php if ($user['phone']): ?>
-                                        <a class="mt-1 block text-sm font-bold text-pink-700 hover:underline" href="<?= e(whatsapp_link($user['phone'])) ?>" target="_blank" rel="noopener"><?= e($user['phone']) ?></a>
-                                    <?php endif; ?>
+                            <div class="py-3">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <strong><?= e($user['name']) ?></strong>
+                                        <small class="block text-slate-500"><?= e($user['email']) ?> &middot; <?= e(role_label($user['role'])) ?></small>
+                                        <?php if ($user['phone']): ?>
+                                            <a class="mt-1 block text-sm font-bold text-pink-700 hover:underline" href="<?= e(whatsapp_link($user['phone'])) ?>" target="_blank" rel="noopener"><?= e($user['phone']) ?></a>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="flex shrink-0 gap-2">
+                                        <button type="button" data-edit-user="<?= (int)$user['id'] ?>" class="rounded-md border border-pink-200 px-3 py-2 text-sm font-bold text-pink-700 hover:bg-pink-50">Editar</button>
+                                        <form method="post" onsubmit="return confirm('Apagar este usuario?')">
+                                            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                                            <input type="hidden" name="action" value="delete_user">
+                                            <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
+                                            <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50">Apagar</button>
+                                        </form>
+                                    </div>
                                 </div>
-                                <form method="post" onsubmit="return confirm('Apagar este usuário?')">
+                                <form method="post" data-edit-user-form="<?= (int)$user['id'] ?>" class="mt-3 hidden grid gap-3 rounded-md border border-pink-100 bg-pink-50/50 p-3 sm:grid-cols-2">
                                     <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                                    <input type="hidden" name="action" value="delete_user">
+                                    <input type="hidden" name="action" value="update_user">
                                     <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
-                                    <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50">Apagar</button>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-bold text-slate-700">Nome</span>
+                                        <input required name="name" value="<?= e($user['name']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-bold text-slate-700">E-mail</span>
+                                        <input required type="email" name="email" value="<?= e($user['email']) ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-bold text-slate-700">WhatsApp</span>
+                                        <input name="phone" value="<?= e($user['phone'] ?? '') ?>" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                    </label>
+                                    <label class="block">
+                                        <span class="mb-1 block text-xs font-bold text-slate-700">Tipo</span>
+                                        <select name="role" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                            <option value="manicure" <?= $user['role'] === 'manicure' ? 'selected' : '' ?>>Manicure</option>
+                                            <option value="manicure_admin" <?= $user['role'] === 'manicure_admin' ? 'selected' : '' ?>>Manicure admin</option>
+                                            <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
+                                        </select>
+                                    </label>
+                                    <label class="block sm:col-span-2">
+                                        <span class="mb-1 block text-xs font-bold text-slate-700">Nova senha</span>
+                                        <input type="password" name="password" placeholder="Deixe vazio para manter a senha atual" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                                    </label>
+                                    <button class="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white sm:col-span-2">Salvar alteracoes</button>
                                 </form>
                             </div>
                         <?php endforeach; ?>
@@ -1077,6 +1423,7 @@ function nav_link(string $target, string $label, string $current): string
                         <span class="mb-1 block text-sm font-bold text-slate-700">Enviar foto do dispositivo</span>
                         <input name="service_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full rounded-md border border-slate-300 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-bold file:text-pink-700">
                     </label>
+                    <?= service_image_adjuster('new') ?>
                     <label class="block lg:col-span-2">
                         <span class="mb-1 block text-sm font-bold text-slate-700">Status</span>
                         <span class="flex min-h-[42px] items-center gap-2 font-bold"><input type="checkbox" name="active" checked> Ativo</span>
@@ -1118,6 +1465,7 @@ function nav_link(string $target, string $label, string $current): string
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Trocar foto pelo dispositivo</span>
                                 <input name="service_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full rounded-md border border-slate-300 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:font-bold file:text-pink-700">
                             </label>
+                            <?= service_image_adjuster('service-' . (int)$service['id'], $service) ?>
                             <label class="block lg:col-span-2">
                                 <span class="mb-1 block text-sm font-bold text-slate-700">Status</span>
                                 <span class="flex min-h-[42px] items-center gap-2 font-bold"><input type="checkbox" name="active" <?= (int)$service['active'] === 1 ? 'checked' : '' ?>> Ativo</span>
@@ -1297,6 +1645,279 @@ function nav_link(string $target, string $label, string $current): string
                 }
             });
             renderMarketingArt();
+        </script>
+    <?php endif; ?>
+    <?php if ($page === 'usuarios'): ?>
+        <script>
+            document.querySelectorAll('[data-edit-user]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const form = document.querySelector(`[data-edit-user-form="${button.dataset.editUser}"]`);
+                    if (!form) {
+                        return;
+                    }
+                    form.classList.toggle('hidden');
+                    button.textContent = form.classList.contains('hidden') ? 'Editar' : 'Fechar';
+                });
+            });
+        </script>
+    <?php endif; ?>
+    <?php if ($page === 'sobre'): ?>
+        <script>
+            const aboutInputs = {
+                imageFile: document.querySelector('[data-about-input="image_file"]'),
+                imageUrl: document.querySelector('[data-about-input="image_url"]'),
+                label: document.querySelector('[data-about-input="label"]'),
+                text: document.querySelector('[data-about-input="text"]'),
+                signature: document.querySelector('[data-about-input="signature"]'),
+                textFont: document.querySelector('[data-about-input="text_font"]'),
+                signatureFont: document.querySelector('[data-about-input="signature_font"]'),
+                labelColor: document.querySelector('[data-about-input="label_color"]'),
+                textColor: document.querySelector('[data-about-input="text_color"]'),
+                signatureColor: document.querySelector('[data-about-input="signature_color"]'),
+                imageZoom: document.querySelector('[data-about-input="image_zoom"]'),
+                imagePosX: document.querySelector('[data-about-input="image_pos_x"]'),
+                imagePosY: document.querySelector('[data-about-input="image_pos_y"]'),
+            };
+            const aboutPreview = {
+                image: document.querySelector('[data-about-preview="image"]'),
+                frame: document.querySelector('[data-about-frame]'),
+                body: document.querySelector('[data-about-preview="body"]'),
+                label: document.querySelector('[data-about-preview="label"]'),
+                text: document.querySelector('[data-about-preview="text"]'),
+                signature: document.querySelector('[data-about-preview="signature"]'),
+            };
+            const fontClasses = ['brand-serif', 'brand-script', 'font-sans'];
+            let aboutImageZoom = Number(aboutInputs.imageZoom.value || 1);
+            let aboutImagePosX = Number(aboutInputs.imagePosX.value || 0);
+            let aboutImagePosY = Number(aboutInputs.imagePosY.value || 0);
+            let aboutDragging = false;
+            let aboutDragStartX = 0;
+            let aboutDragStartY = 0;
+            let aboutDragBaseX = 0;
+            let aboutDragBaseY = 0;
+
+            function clamp(value, min, max) {
+                return Math.max(min, Math.min(max, value));
+            }
+
+            function setFont(element, fontClass) {
+                element.classList.remove(...fontClasses);
+                element.classList.add(fontClass);
+            }
+
+            function updateAboutImageTransform() {
+                aboutImagePosX = clamp(aboutImagePosX, -45, 45);
+                aboutImagePosY = clamp(aboutImagePosY, -45, 45);
+                aboutInputs.imageZoom.value = String(Number(aboutImageZoom).toFixed(2));
+                aboutInputs.imagePosX.value = String(Math.round(aboutImagePosX));
+                aboutInputs.imagePosY.value = String(Math.round(aboutImagePosY));
+                aboutPreview.image.style.transform = `translate(${aboutImagePosX}%, ${aboutImagePosY}%) scale(${aboutImageZoom})`;
+            }
+
+            function updateAboutPreview() {
+                aboutPreview.label.textContent = aboutInputs.label.value || 'Sobre mim';
+                aboutPreview.text.textContent = aboutInputs.text.value || '';
+                aboutPreview.signature.textContent = aboutInputs.signature.value || '';
+                aboutPreview.label.style.color = aboutInputs.labelColor.value;
+                aboutPreview.body.style.color = aboutInputs.textColor.value;
+                aboutPreview.signature.style.color = aboutInputs.signatureColor.value;
+                setFont(aboutPreview.text, aboutInputs.textFont.value);
+                setFont(aboutPreview.signature, aboutInputs.signatureFont.value);
+                updateAboutImageTransform();
+            }
+
+            [
+                aboutInputs.label,
+                aboutInputs.text,
+                aboutInputs.signature,
+                aboutInputs.textFont,
+                aboutInputs.signatureFont,
+                aboutInputs.labelColor,
+                aboutInputs.textColor,
+                aboutInputs.signatureColor,
+            ].forEach((input) => {
+                input.addEventListener('input', updateAboutPreview);
+                input.addEventListener('change', updateAboutPreview);
+            });
+
+            aboutInputs.imageUrl.addEventListener('input', () => {
+                if (aboutInputs.imageUrl.value.trim() !== '') {
+                    aboutPreview.image.src = aboutInputs.imageUrl.value.trim();
+                }
+            });
+
+            aboutInputs.imageFile.addEventListener('change', () => {
+                const file = aboutInputs.imageFile.files?.[0];
+                if (!file) {
+                    return;
+                }
+                aboutPreview.image.src = URL.createObjectURL(file);
+                aboutImageZoom = 1;
+                aboutImagePosX = 0;
+                aboutImagePosY = 0;
+                updateAboutImageTransform();
+            });
+
+            aboutPreview.frame.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+                aboutDragging = true;
+                aboutDragStartX = event.clientX;
+                aboutDragStartY = event.clientY;
+                aboutDragBaseX = aboutImagePosX;
+                aboutDragBaseY = aboutImagePosY;
+                aboutPreview.frame.setPointerCapture(event.pointerId);
+                aboutPreview.frame.classList.add('cursor-grabbing');
+            });
+
+            aboutPreview.frame.addEventListener('pointermove', (event) => {
+                if (!aboutDragging) {
+                    return;
+                }
+                const rect = aboutPreview.frame.getBoundingClientRect();
+                aboutImagePosX = clamp(aboutDragBaseX + ((event.clientX - aboutDragStartX) / rect.width) * 70, -45, 45);
+                aboutImagePosY = clamp(aboutDragBaseY + ((event.clientY - aboutDragStartY) / rect.height) * 70, -45, 45);
+                updateAboutImageTransform();
+            });
+
+            function stopAboutDragging(event) {
+                if (!aboutDragging) {
+                    return;
+                }
+                aboutDragging = false;
+                aboutPreview.frame.releasePointerCapture?.(event.pointerId);
+                aboutPreview.frame.classList.remove('cursor-grabbing');
+            }
+
+            aboutPreview.frame.addEventListener('pointerup', stopAboutDragging);
+            aboutPreview.frame.addEventListener('pointercancel', stopAboutDragging);
+            aboutPreview.frame.addEventListener('wheel', (event) => {
+                event.preventDefault();
+                aboutImageZoom = clamp(aboutImageZoom + (event.deltaY < 0 ? 0.08 : -0.08), 0.5, 4);
+                updateAboutImageTransform();
+            }, { passive: false });
+
+            updateAboutPreview();
+        </script>
+    <?php endif; ?>
+    <?php if ($page === 'servicos'): ?>
+        <script>
+            document.querySelectorAll('.service-image-adjuster').forEach((adjuster) => {
+                const form = adjuster.closest('form');
+                const image = adjuster.querySelector('[data-adjuster-image]');
+                const zoom = adjuster.querySelector('[data-adjuster-zoom]');
+                const zoomInput = adjuster.querySelector('[data-adjuster-zoom-input]');
+                const posXInput = adjuster.querySelector('[data-adjuster-x-input]');
+                const posYInput = adjuster.querySelector('[data-adjuster-y-input]');
+                const rotationInput = adjuster.querySelector('[data-adjuster-rotation-input]');
+                const okButton = adjuster.querySelector('[data-adjuster-ok]');
+                const rotateLeft = adjuster.querySelector('[data-adjuster-rotate-left]');
+                const rotateRight = adjuster.querySelector('[data-adjuster-rotate-right]');
+                const frame = adjuster.querySelector('.service-image-frame');
+                const fileInput = form?.querySelector('input[type="file"][name="service_image"]');
+                const urlInput = form?.querySelector('input[name="image_url"]');
+                let posX = Number(posXInput.value || 0);
+                let posY = Number(posYInput.value || 0);
+                let rotation = Number(rotationInput.value || 0);
+                let isDragging = false;
+                let dragStartX = 0;
+                let dragStartY = 0;
+                let dragBaseX = 0;
+                let dragBaseY = 0;
+
+                function clamp(value, min, max) {
+                    return Math.max(min, Math.min(max, value));
+                }
+
+                function renderAdjustment() {
+                    zoomInput.value = zoom.value;
+                    posXInput.value = String(Math.round(posX));
+                    posYInput.value = String(Math.round(posY));
+                    rotationInput.value = String(rotation);
+                    image.style.transform = `translate(${posX}%, ${posY}%) rotate(${rotation}deg) scale(${zoom.value})`;
+                    if (okButton) {
+                        okButton.textContent = 'OK, usar este ajuste';
+                        okButton.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+                        okButton.classList.add('bg-pink-600', 'hover:bg-pink-700');
+                    }
+                }
+
+                zoom.addEventListener('input', renderAdjustment);
+                rotateLeft?.addEventListener('click', () => {
+                    rotation = (rotation + 270) % 360;
+                    renderAdjustment();
+                });
+                rotateRight?.addEventListener('click', () => {
+                    rotation = (rotation + 90) % 360;
+                    renderAdjustment();
+                });
+
+                frame?.addEventListener('pointerdown', (event) => {
+                    isDragging = true;
+                    dragStartX = event.clientX;
+                    dragStartY = event.clientY;
+                    dragBaseX = posX;
+                    dragBaseY = posY;
+                    frame.setPointerCapture(event.pointerId);
+                    frame.classList.add('cursor-grabbing');
+                });
+
+                frame?.addEventListener('pointermove', (event) => {
+                    if (!isDragging) {
+                        return;
+                    }
+                    const rect = frame.getBoundingClientRect();
+                    posX = clamp(dragBaseX + ((event.clientX - dragStartX) / rect.width) * 100, -100, 100);
+                    posY = clamp(dragBaseY + ((event.clientY - dragStartY) / rect.height) * 100, -100, 100);
+                    renderAdjustment();
+                });
+
+                function stopDragging(event) {
+                    if (!isDragging) {
+                        return;
+                    }
+                    isDragging = false;
+                    frame?.releasePointerCapture?.(event.pointerId);
+                    frame?.classList.remove('cursor-grabbing');
+                }
+
+                frame?.addEventListener('pointerup', stopDragging);
+                frame?.addEventListener('pointercancel', stopDragging);
+                frame?.addEventListener('wheel', (event) => {
+                    event.preventDefault();
+                    const nextZoom = Number(zoom.value) + (event.deltaY < 0 ? 0.08 : -0.08);
+                    zoom.value = String(clamp(nextZoom, Number(zoom.min), Number(zoom.max)).toFixed(2));
+                    renderAdjustment();
+                }, { passive: false });
+
+                fileInput?.addEventListener('change', () => {
+                    const file = fileInput.files?.[0];
+                    if (!file) {
+                        return;
+                    }
+                    image.src = URL.createObjectURL(file);
+                    zoom.value = '1';
+                    posX = 0;
+                    posY = 0;
+                    rotation = 0;
+                    renderAdjustment();
+                    adjuster.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+
+                urlInput?.addEventListener('input', () => {
+                    if (urlInput.value.trim() !== '') {
+                        image.src = urlInput.value.trim();
+                    }
+                });
+
+                okButton?.addEventListener('click', () => {
+                    renderAdjustment();
+                    okButton.textContent = 'Ajuste aplicado';
+                    okButton.classList.remove('bg-pink-600', 'hover:bg-pink-700');
+                    okButton.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+                });
+
+                renderAdjustment();
+            });
         </script>
     <?php endif; ?>
 </body>
