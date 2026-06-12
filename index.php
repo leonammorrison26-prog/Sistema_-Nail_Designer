@@ -819,16 +819,27 @@ function service_image_adjuster(string $id, array $service = []): string
             }
 
             .home-hero aside > div:first-child {
-                height: 270px !important;
+                height: auto !important;
+                aspect-ratio: 4 / 3;
                 border-radius: .75rem !important;
+            }
+
+            .home-hero aside > div:first-child img {
+                object-fit: contain !important;
+                background: #fff7f5;
             }
 
             .home-hero aside > div:last-child {
                 padding: 1.15rem 1rem 1.35rem !important;
             }
 
+            .home-hero aside > div:last-child p:nth-child(2) {
+                font-size: 1.9rem !important;
+                line-height: 1.08 !important;
+            }
+
             .home-hero aside .brand-script {
-                font-size: 2.35rem !important;
+                font-size: 2rem !important;
             }
 
             #catalogo {
